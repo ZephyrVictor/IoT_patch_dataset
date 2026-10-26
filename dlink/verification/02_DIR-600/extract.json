@@ -1,0 +1,33 @@
+{
+  "target_id": "02_DIR-600",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DIR600B_FW203WWB02.bin",
+      "sha256": "214907133a004bd53aef4223fe81ac9dcba8aa8e9f1a8e00f0996045c6ea43ce",
+      "size_bytes": 3113088
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/02_DIR-600/rootfs",
+  "rootfs_file_count": 828,
+  "arch": "mipsel",
+  "version_strings": [
+    {"where": "etc/config/buildver", "string": "2.03"},
+    {"where": "etc/config/buildno", "string": "a3cj"},
+    {"where": "etc/defnodes/S40brand.php:8", "string": "set(\"hwversion\", \"B1\")"},
+    {"where": "etc/defnodes/S40brand.php:28", "string": "set(\"hardwareversion\", \"Bx\"); /* D-Link require for DIR-600B */"},
+    {"where": "www/tools_firmware.php:29", "string": "$FW_VER = fread(\"/etc/config/buildver\");"},
+    {"where": "www/version.php (FW_VER source)", "string": "$FW_VER = fread(\"/etc/config/buildver\");"}
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "ZIP contains 5 entries; firmware image = DIR600B_FW203WWB02.bin; excluded langpack (DIR600B_FW203WWB02_langpack_de.bin), readme txt, changes.txt, PDF.",
+    "Manifest firmware_version '203b02_ALL_de_20100316' is the ZIP packaging name; internal buildver '2.03' + buildno 'a3cj' are consistent with it (2.03b02), no contradiction found.",
+    "Image layout: uImage MIPS kernel (lzma, 2.6.21) at 0x60 + vendor non-standard-signature squashfs v3.0 LE at 0xE0080 (PackImg header); binwalk -Me extracted it successfully (no sasquatch needed).",
+    "rootfs is a symlink to extract/_DIR600B_FW203WWB02.bin.extracted/squashfs-root.",
+    "binwalk rewrote absolute symlinks to /dev/null for security (e.g. htdocs/upnp/upnpdev.cgi, htdocs/upnp/wfadev.cgi, htdocs/upnp/xmldoc, etc/init.d/S03config.sh, etc/init.d/S10system.sh, etc/hosts). Real targets still present in rootfs: usr/sbin/upnpkits, etc/scripts/config.sh, etc/scripts/system.sh.",
+    "ELF strings scan (first 20 ELFs in bin/sbin/usr/bin): no version-string hits; version is only carried in /etc/config/buildver + buildno.",
+    "Web tier: PHP-based www/ (rgdb/xmldbc backend, busybox httpd), htdocs/upnp holds UPnP cgis, htdocs/web/upnp also present."
+  ]
+}

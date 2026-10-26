@@ -1,0 +1,53 @@
+{
+  "target_id": "20_DCS-5230",
+  "model": "DCS-5230 Rev. ALL",
+  "firmware_version": "1-02_all_en_20111006 (tinydb [System] Version=1.0.0-4108, OEMVersion=1.02)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/20_DCS-5230/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2013-1603",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "认证绕过（硬编码凭据后门，RTSP）",
+      "target_binary": "sbin/rtspd (ARM 32-bit LSB, stripped)",
+      "endpoint": "RTSP DESCRIBE rtsp://<ip>:554/play1.sdp (Authorization: Basic)",
+      "parameter": "Authorization: Basic <base64(\"x:?*\")>",
+      "handler_address": "0x11070",
+      "sink": {"func": "strncmp(decoded+len-3, \":?*\", 3) -> return 1", "call_site": "0x11130"},
+      "evidence": [
+        "strings: rtspd 0x1ab64=\":?*\" 0x1ab68=\"no pssswd\\n\" 0x1ab9c=\"_AdminUser\" 0x1aba8=\"AdminPasswd\" 0x1ab84=\"HTTPAccount\" 0x1ac10=\"authenticationOK\"",
+        "objdump 0x110e0-0x110ec: strncmp(decoded, \":\"@0x1ab60, 1)==0 -> return 0（首字符 ':' 直接失败，故后门需 \":?*\" 前至少 1 字符）",
+        "objdump 0x11108-0x11130: r3=decoded+strlen(decoded)-3; strncmp(r3, \":?*\"@0x1ab64, 3)",
+        "objdump 0x11138-0x11158: cmp r0,#0; bne 1115c(正常比对路径); 相等则 printf(\"no pssswd\") + mov r2,#1 -> [fp,#-288]=返回值 => 函数返回 1=认证通过",
+        "正常路径 0x1115c+: TinyDB::init(\"HTTPAccount\")@0x11198, getByte(\"_MaxUsers\")@0x111a8, get(\"_AdminUser\")@0x111d0, get(\"AdminPasswd\")@0x112dc — 后门返回发生在全部凭据比对之前",
+        "调用链唯一：DESCRIBE handler 0xe108 (dispatch 0xcf18) -> 0xf43c bl 0x11bb0 authenticationOK -> 0x11cc8 bl 0x11070 凭据校验；全二进制 bl 11bb0 仅 1 处、bl 11070 仅 1 处",
+        "0x11ae0: strncmp(str,\"Authorization: Basic \",21)+strstr(\"\\r\\n\") 提取并解码 Basic 凭据后传入 0x11070",
+        "authenticationOK 返回 0 时 0xf44c-0xf524 构造 RTSP/1.0 401 Unauthorized 并 close；返回 1 则继续出 SDP",
+        "tinydb 解析: [RTPServer] Authenticate type=0x01 value=0x00（出厂默认关认证），Port=554，Url1=play1.sdp..Url4=3gpp"
+      ],
+      "reason": "rtspd 凭据校验函数 0x11070 存在 \":?*\" 魔术后缀硬编码后门：base64 解码后的凭据末 3 字节为 \":?*\" 即返回认证通过，跳过 [HTTPAccount] 全部真实凭据比对；与同平台 DCS-2121 1.06 完全同构，advisory 明确列 DCS-5230 1.02，本地 OEMVersion=1.02。"
+    },
+    {
+      "cve_id": "CVE-2013-1602",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "信息泄露/认证绕过（RTSP Session 不校验）",
+      "target_binary": "sbin/rtspd (ARM 32-bit LSB, stripped)",
+      "endpoint": "RTSP SETUP/PLAY/TEARDOWN rtsp://<ip>:554/play1.sdp",
+      "parameter": "Session: <id> 请求头",
+      "handler_address": "0xf688",
+      "sink": {"func": "atoi(strstr(req,\"Session:\")+8) -> this->sessionId@+52", "call_site": "0xf898"},
+      "evidence": [
+        "objdump 0xf84c-0xf854: strstr(request, \"Session:\"@0x1a5b0) 结果存 [fp-0x103b]",
+        "objdump 0xf86c-0xf8a4: 若非 NULL -> atoi(ptr+8)@0xf898 -> str r3,[r4,#52]（this->sessionId）——客户端 Session id 原样采纳，无任何与已发放会话的比对",
+        "objdump 0xf8a8-0xf8b4: 无 Session 头时 bl 0x10f50 生成 id：srand(gettimeofday)+rand, 1+(int)(rand*100000.0/2147483648.0) => id ∈ [1,100000]，可猜测/劫持",
+        "分发器 0xce70-0xd000: strcmp OPTIONS/DESCRIBE/SETUP/PLAY/TEARDOWN -> 0x1038c/0xe108/0xf688/0xfeac/0x100ac；SETUP(0xcfa8)/PLAY/TEARDOWN 分发处无认证",
+        "全二进制 atoi 仅 2 处（0xf898、0x11e0c，均在 SETUP 路径）；authenticationOK 仅 DESCRIBE 的 0xf43c 一处调用 => SETUP/PLAY/TEARDOWN 零认证",
+        "PLAY handler 0xfeac: 0xff58 ldr r3,[r3,#52] 取 this->sessionId 直接回显（\"%sSession: %d;timeout=80\"），不校验来源",
+        "伴生进程核查：rtpd strings 含 IPCServer::init/127.0.0.1 —— rtpd 绑定回环、纯按 rtspd IPC 指令推流，RTSP 侧无任何会话校验可依赖",
+        "strings: rtspd 0x1a5a0=\"handleCmd_SETUP\" 0x1a3e0=\"handleCmd_DESCRIBE\"，确认 handler 归属"
+      ],
+      "reason": "handleCmd_SETUP 0xf688 将客户端 Session 头 atoi 后直接作为会话 id 存储（无校验），自生成 id 空间仅 1..100000，且仅 DESCRIBE 有认证（SETUP/PLAY/TEARDOWN 全无）——RTSP 会话凭据（cookie 等价物）校验缺失，可未授权获取视频流；advisory 明确列 DCS-5230 1.02，本地 OEMVersion=1.02。"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "target_id": "26_DAP-1350",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DAP-1350_fw_reva_114eub01_EU_en_20120529/DAP1350A1_FW114EUB01.bin",
+      "sha256": "2410251f0b85dffbab18dacd66b4535e48ed5f45ff665c9f3d2a2827287d7abb",
+      "size_bytes": 5242944
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/26_DAP-1350/extract/rootfs",
+  "rootfs_file_count": 468,
+  "arch": "mipsel",
+  "version_strings": [
+    {"where": "usr/bin/my_cgi.cgi", "string": "1.14EU"},
+    {"where": "usr/bin/my_cgi.cgi", "string": "Mon, 30 Apr 2012"},
+    {"where": "usr/bin/my_cgi.cgi", "string": "RT3052-AP-DAP1350EU-4"},
+    {"where": "usr/bin/my_cgi.cgi", "string": "RT3052-AP-DAP1350EU-3"},
+    {"where": "usr/bin/system_manager", "string": "1.14EU"},
+    {"where": "usr/bin/generate_version_info", "string": "1.14EU"},
+    {"where": "usr/bin/generate_version_info", "string": "DAP-1350_Ax_EU (writes /www/version.txt, 'Firmware Internal Version: V%sB%s')"},
+    {"where": "sbin/rc", "string": "1.14EU (adjacent 'Mon, 30 Apr 2012')"},
+    {"where": "sbin/fwqd", "string": "1.14EU"},
+    {"where": "www/xml/model_info.xml", "string": "<model_name>DAP-1350</model_name> <hw_ver>A1</hw_ver>"},
+    {"where": "www/xml/lang_ver.txt", "string": "1.00 EN,2010/4/20 (language pack version, not firmware)"},
+    {"where": "zip:DAP-1350_fw_reva_114eub01_EU_en_20120529/changes.txt", "string": "Firmware: 1.14EUb01 / Hardware: A1 / Date: 29 May 2012"}
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "ZIP 内含 changes.txt/update.txt(说明文档) 与唯一镜像 DAP1350A1_FW114EUB01.bin (5,242,944 字节 = 0x40 头 + 0x500000)",
+    "镜像布局: 0x00 D-Link RT3052 头 (magic 0xd1ea7926, 型号串 RT3052-AP-DAP1350EU-3); 0x40 uImage 头 (MIPS, LZMA, 内核 0xFF393 字节, 入口 0x80307000, 创建 2012-04-30); 0x110040 rootfs",
+    "rootfs 为 squashfs 3.0 LE, 厂商魔数 'shsq' (hsqs 前两字节交换), 标准 unsquashfs 不识别, 用 sasquatch 成功解出 (224 文件/66 目录/93 符号链接)",
+    "rootfs_file_count=468 为把 mnt/www.tgz(252 项, 设备启动时解压到 /www) 展开进 www/ 后的普通文件总数; 空树总条目 634",
+    "web 栈: lighttpd (usr/bin/lighttpd, 配置在 mnt/lighttpd/*.conf: document-root=/www, index=login.htm) + CGI /usr/bin/my_cgi.cgi; 登录页 www/rt/login.htm",
+    "etc/rc.d/rcS 启动时 'cp -a /mnt/* /etc' — mnt/ 下的 ap.db/user.db/rt.db 等 SQLite 配置库运行时位于 /etc; 系统自带 usr/bin/sqlite3; generate_version_info 含 'select db_version from db_version' SQL — 与 CVE-2014-3872 (登录页 SQL 注入) 场景吻合",
+    "构建日期锚点一致: uImage 时间戳/squashfs 创建时间/ELF 内 'Mon, 30 Apr 2012' 均为 2012-04-30, release note 载明 1.14EUb01 发布 2012-05-29; 版本指纹 '1.14EU' 与清单 114eub01 一致, 无矛盾版本串"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "target_id": "26_DAP-1350",
+  "status": "ok",
+  "cves": [
+    {
+      "cve_id": "CVE-2014-3872",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2014-3872",
+      "record_source": "cveawg",
+      "refs": [
+        {
+          "url": "http://secunia.com/advisories/58254",
+          "tags": [
+            "third-party-advisory",
+            "x_refsource_SECUNIA"
+          ]
+        },
+        {
+          "url": "http://securityadvisories.dlink.com/security/publication.aspx?name=SAP10023",
+          "tags": [
+            "x_refsource_CONFIRM"
+          ]
+        },
+        {
+          "url": "http://www.securityfocus.com/bid/67310",
+          "tags": [
+            "vdb-entry",
+            "x_refsource_BID"
+          ]
+        }
+      ]
+    }
+  ]
+}

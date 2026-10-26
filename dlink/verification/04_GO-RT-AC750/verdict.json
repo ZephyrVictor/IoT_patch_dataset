@@ -1,0 +1,56 @@
+{
+  "target_id": "04_GO-RT-AC750",
+  "model": "GO-RT-AC750 Rev. A",
+  "firmware_version": "101b03_ALL_de_20140922 (buildver=1.01 / buildrev=b03 / hwver=A1, wrgac18_dlob.hans_ac750)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/04_GO-RT-AC750/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2024-27683",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "stack-based buffer overflow (CWE-121)",
+      "target_binary": "/htdocs/cgibin",
+      "endpoint": "/HNAP1 (POST, hnap)",
+      "parameter": "SOAPAction HTTP 头（动作名 = 头值中最后一个 '/' 之后的段）",
+      "handler_address": "0x411f20 (hnap_main)",
+      "sink": {"func": "sprintf", "call_site": "0x4121c8"},
+      "evidence": [
+        "readelf --dyn-syms -W rootfs/htdocs/cgibin | grep hnap_main → 117: 00411f20 1440 FUNC GLOBAL DEFAULT 10 hnap_main（etc/services/HTTP/httpcfg.php: /HNAP1 → /usr/sbin/hnap → cgibin 符号链接）",
+        "objdump -d 0x411f20: addiu sp,sp,-584; sw ra,580(sp) — 584 字节栈帧，saved RA 位于 sp+580",
+        "0x411fa8/0x411fac: jalr getenv; delay slot move s0,v0 → s0=getenv(\"HTTP_SOAPACTION\")；0x411f94: s2=getenv(\"HTTP_AUTHORIZATION\")",
+        "0x411fc8: jalr strstr(s0, \"http://purenetworks.com/HNAP1/GetDeviceSettings\") — 子串命中即跳过认证校验函数 0x411490，未认证可达（与 CVSS 9.8 AV:N/AC:L/PR:N 一致）",
+        "0x41201c: jalr strrchr(s0,'/') → s0=动作名（尾部引号剥离），从头部到 sink 全程无长度检查",
+        "0x41208c open(\"/var/run/hnap.lock\",0x101,0644) + 0x4120ac lockf；0x411ff8/0x41203c/0x412104 cgibin_parse_request(cb=0x411d50,0,0x10000)；0x41214c ixmlParseBuffer(POST body 须为合法 XML)",
+        "0x412124 addiu s1,sp,288; 0x41213c memset(sp+288,0,256) — 256 字节栈缓冲",
+        "SINK 0x4121c8: jalr sprintf — a0=s1=sp+288, fmt=\"%s%s\"(@0x42159c, file 0x2159c), a2=\"/runtime/hnap/\"(@0x422b84, delay slot 0x4121cc), a3=s0(动作名) → 无界拷贝，14+strlen(s0)+1 字节入 256 字节缓冲",
+        "缓冲起点 sp+288 距 saved RA(sp+580) 292 字节：动作名 >241 字节溢出缓冲、≥278 字节即覆盖返回地址",
+        "次要 sink 0x412300: sprintf(fmt \"%s%s.php\\nShellPath=%s%s.sh\\n\" @0x22bd4, \"/etc/templates/hnap/\" @0x22bf0, s0…) 同样无界"
+      ],
+      "reason": "advisory 指名 GORTAC750_A1_FW_v101b03 与本构建逐串吻合（buildver 1.01+buildrev b03+hwver A1）；/htdocs/cgibin 导出 hnap_main@0x411f20，SOAPAction 派生动作名经 GetDeviceSettings 子串 strstr 认证绕过后，由 sprintf \"%s%s\" 无界拷入 256 字节栈缓冲(sp+288，RA@+292)，handler+sink+参数可控路径完整，POST 请求触发。"
+    },
+    {
+      "cve_id": "CVE-2024-27684",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "reflected XSS / url 参数未净化反射 (CWE-79)",
+      "target_binary": "/htdocs/cgibin",
+      "endpoint": "/seama.cgi /fwup.cgi /dlcfg.cgi /dldongle.cgi /dlapn.cgi",
+      "parameter": "REPORT（即 url 参数；缺省时回退 HTTP_REFERER）",
+      "handler_address": "0x406ce0（公共 handler；thunk: seamacgi_main@0x407c88 a3=0, fwup_main@0x407c7c a3=1, dlcfg_main@0x407c70 a3=2, dldongle_main@0x407c64 a3=3, dlapn_main@0x407c58 a3=4）",
+      "sink": {"func": "printf", "call_site": "0x4041b4（cgibin_print_http_status 301 分支，Location: %s）"},
+      "evidence": [
+        "ls -l rootfs/htdocs/web/{seama,fwup,dlcfg,dldongle,dlapn}.cgi → 全部为 → /htdocs/cgibin 的符号链接（extract.json notes）",
+        "readelf --dyn-syms -W | grep -E 'seamacgi|fwup|dlcfg|dldongle|dlapn' → seamacgi_main 00407c88 / fwup_main 00407c7c / dlcfg_main 00407c70 / dldongle_main 00407c64 / dlapn_main 00407c58（各 12 字节 thunk）",
+        "objdump 0x407c58-0x407c90: 五个 thunk 均为 li a3,0..4 + j 406ce0 — seama=0/fwup=1/dlcfg=2/dldongle=3/dlapn=4 全部汇入公共 handler 0x406ce0",
+        "0x406fbc: jal 406070 get_cgi(\"REPORT\")→s3；0x406fcc-0x407094 sobj_add_string 链构造 \"http://\"+getenv(\"HTTP_HOST\")+[\":\"+SERVER_PORT(≠80)]+\"/\"+REPORT；0x4070c4 sobj_strdup，delay slot 0x4070d8 move s3,v0 捕获 → s3=完整 URL；REPORT 缺省走 0x4070a8-0x4070c4 strdup(getenv(\"HTTP_REFERER\"))",
+        "0x406f8c-0x406fb0: get_cgi(\"REPORT_METHOD\") 经 strcasecmp \"xml\" → s4=非xml；REPORT_METHOD 缺省时 s4=1（0x406f88 li s4,1）→ 默认即 HTML 模式",
+        "所有应答路径 0x407128/0x4071d0/0x4072c4/0x4073b4/0x407498: cgibin_print_http_resp(a0=s4, a1=s3=url, …)（未授权/读签名失败/jump-table 五类 case 全部经过）",
+        "cgibin_print_http_resp HTML 分支 0x405320-0x4053c8: sobj_add_string(s1,url) → 追加 \"?RESULT=\"(0x20464)+result → \"&REASON=\"(0x20470)+msg → cgibin_print_http_status(301, 0, combined) — url 未经任何转义",
+        "SINK cgibin_print_http_status 301 分支 0x4041b0-0x4041c0: jalr printf(fmt@0x41ffbc) = \"HTTP/1.1 301 Moved Permanently\\r\\nLocation: %s\\r\\n\\r\\n\", a1=combined",
+        "413 路径 0x406e98-0x406ed8: cgibin_parse_request 返回 -100 且 REPORT 存在时 cgibin_print_http_resp(1, REPORT 原始值, \"FAIL\", \"ERR_REQ_TOO_LONG\") → Location: <REPORT 原样>，无 http:// 前缀、无转义（可注入任意响应内容/脚本）",
+        "XML 模式（REPORT_METHOD=xml）0x405270 仅对状态串 sobj_escape_xml_sc 且完全不回显 URL；HTML 模式链路（get_cgi→sobj_add_string→sprintf/printf）无 HTML 转义、无 CRLF 过滤 → 无修补痕迹"
+      ],
+      "reason": "advisory 版本 v101b03 与本构建逐串吻合；五个指名 .cgi 全部经 12 字节 thunk 汇入公共 handler 0x406ce0，其 url 参数（REPORT，缺省回退 HTTP_REFERER）在默认 HTML 模式下未经任何转义直接反射进 301 Location 头（413 路径更以原始值直反射，可注入任意 web script/HTML），handler+sink+参数可控路径完整；反射点位于 Location 头这一细节已在 evidence 注明。"
+    }
+  ]
+}

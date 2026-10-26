@@ -1,0 +1,74 @@
+{
+  "target_id": "19_DCS-6517",
+  "status": "ok",
+  "cves": [
+    {
+      "cve_id": "CVE-2025-6931",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-6931",
+      "record_source": "local_archive",
+      "refs": [
+        {
+          "url": "http://cdn2.v50to.cc/dlink/DCS-6517B1_FW_v2.02.01/report_3.pdf",
+          "tags": [
+            "Exploit",
+            "Third Party Advisory"
+          ]
+        },
+        {
+          "url": "http://cdn2.v50to.cc/dlink/DCS-7517_B1_FW_v2.02.01/report_1.pdf",
+          "tags": [
+            "Exploit",
+            "Third Party Advisory"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/?ctiid.314443",
+          "tags": [
+            "Permissions Required",
+            "VDB Entry",
+            "VDB-314443 | CTI Indicators (IOB, IOC, TTP, IOA)"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/?id.314443",
+          "tags": [
+            "Third Party Advisory",
+            "VDB Entry",
+            "VDB-314443 | D-Link DCS-6517/DCS-7517 Root Password Generation httpd generate_pass_from_mac entropy"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/?submit.605592",
+          "tags": [
+            "Third Party Advisory",
+            "VDB Entry",
+            "Submit #605592 | dlink DCS-6517B1 below or equal v2.02.01 hardcode weak password"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/?submit.605593",
+          "tags": [
+            "Third Party Advisory",
+            "VDB Entry",
+            "Submit #605593 | dlink DCS-7517B1 below or equal v2.02.01 predictable weak password (Duplicate)"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/?submit.605596",
+          "tags": [
+            "Third Party Advisory",
+            "VDB Entry",
+            "Submit #605596 | dlink DCS-7517B1 below or equal v2.02.01 hardcode weak password (Duplicate)"
+          ]
+        },
+        {
+          "url": "https://www.dlink.com/",
+          "tags": [
+            "Product"
+          ]
+        }
+      ]
+    }
+  ]
+}

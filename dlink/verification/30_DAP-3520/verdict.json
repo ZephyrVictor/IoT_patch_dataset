@@ -1,0 +1,59 @@
+{
+  "target_id": "30_DAP-3520",
+  "model": "glm-5.3",
+  "firmware_version": "1.16rc040 (etc/config/buildrev v116rc040v02316s34090, buildver 1.16, builddate 2013-02-01)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/30_DAP-3520/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2024-28436",
+      "verdict": "confirmed",
+      "version_gate": "unclear",
+      "vuln_type": "reflected XSS (pre-auth, register_globals style PHP over IPC)",
+      "target_binary": "sbin/httpd + sbin/atp + usr/sbin/xmldb (sink page www/session_login.php)",
+      "endpoint": "/session_login.php",
+      "parameter": "reload",
+      "handler_address": "0x40177c",
+      "sink": {
+        "func": "atp procPage -> xmldb_ephp register_globals -> ephp echo '<?=$reload?>' into JS string literal",
+        "call_site": "www/session_login.php:13 (var wr_reload = \"<?=$reload?>\";)"
+      },
+      "evidence": [
+        "sink: grep -n reload www/session_login.php -> 13: `var wr_reload = \"<?=$reload?>\";` — $reload echoed raw into a JS string literal, no htmlspecialchars/escaping; page uses <? short tags and relies on register_globals (no $_GET anywhere)",
+        "pre-auth gate: httpd.asm @0x411dcc `lw a0,-32732(gp); addiu a0,a0,22324` -> strcasecmp(ext,\"xgi\"@0x425734) via jalr@0x411dd8; @0x411df4 `addiu a0,a0,22328` -> strcasecmp(ext,\"_int\"@0x425738) via jalr@0x411e00; only these two extensions are session-gated (non-match branches to 0x411eb4 skipping check_session), .php is never checked -> session_login.php reachable without a session (httpd.php:79 SessionFilter lists 'php xgi _int cgi' but the binary compares only xgi/_int)",
+        "dispatch: etc/templates/httpd/httpd.php:54-57 `External { /sbin/atp { php txt} /sbin/xgi { xgi bin dcf log} /sbin/sgi { sgi } }` -> .php requests are handed to /sbin/atp as external CGI",
+        "atp: main@0x4015a4 dispatches on basename; atp_main@0x401d70 == procPage(argv[1], getenv(\"QUERY_STRING\")); procPage@0x40177c URL-decodes the query string, rewrites '&'->'\\n' and '+'->' ', builds the newline-separated command (page path + sid + params incl. reload=<attacker>), then calls lrgdb_ephp@0x4046f8 — no authentication in this path",
+        "IPC: atp lrgdb_ephp@0x4046f8 connects to unix socket /var/run/xmldb_sock (strings: '/var/run/xmldb_sock' @0x7e14, 'Cound not connect to unix socket: %s.' @0x7e28) and sends the command",
+        "register_globals: xmldb xmldb_ephp@0x410550 splits cmd at first '\\n', opens the page, then for each 'name=value' line terminates the name at '=' (delay-slot sb zero), calls var-set fptr @0x405c88 (= got slot -32736 value 0x400000 + 23688; looks up/creates the variable node via 0x405b9c and strdup's the value into node+8) — this sets $reload to the attacker string; page then executed by ephp engine entry 0x40a868 (= got slot -32740 value 0x410000 - 22424) with (client, FILE*)",
+        "no auth in xmldb: strings usr/sbin/xmldb | grep -i session -> zero hits; xmldb_ephp has no session validation, the value flows unescaped into session_login.php:13 output (JS string context -> quote-breakout XSS)"
+      ],
+      "reason": "Full pre-auth chain statically confirmed: httpd session gate covers only xgi/_int extensions (0x411dcc/0x411df4), .php is served via /sbin/atp which forwards the URL-decoded QUERY_STRING through xmldb_sock to xmldb's ephp engine where each parameter becomes a PHP global; session_login.php:13 echoes $reload raw into a JS string literal."
+    },
+    {
+      "cve_id": "CVE-2016-1559",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "information disclosure (SNMP GET reveals admin account and wireless keys)",
+      "target_binary": "usr/sbin/snmpd (net-snmp with D-Link private MIB 1.3.6.1.4.1.171.10.37.37)",
+      "endpoint": "SNMP UDP/161, D-Link private MIB 1.3.6.1.4.1.171.10.37.37 (usersTable / dot11SecuritiesTable / dot11WepKeyTable / dot11MssidTable)",
+      "parameter": "SNMP GET on credential columns (usersName magic 600 / usersPassword magic 601; wpapsk / wepkey columns)",
+      "handler_address": "0x459220",
+      "sink": {
+        "func": "var_usersTable -> xmldbc_get_wb(0,0,xml_path,buf,255) -> strlen(buf)->var_len, return buf",
+        "call_site": "0x459334 (xmldbc_get_wb call for /sys/user:1/password)"
+      },
+      "evidence": [
+        "version gate: target JSON advisory 'DAP-3520 H/W ver. A1 1.16 and earlier' vs etc/config/buildver '1.16' + buildrev v116rc040 -> 1.16 <= 1.16-and-earlier, pass",
+        "binary: file usr/sbin/snmpd -> ELF 32-bit MSB MIPS, stripped, 1.4MB net-snmp; strings contain 78 var_* table handlers incl. var_usersTable, var_dot11SecuritiesTable, var_dot11WepKeyTable, var_dot11MssidTable and write_ handlers write_usersPassword/write_usersName/write_dot11WepKey/write_dot11PassPhrase/write_dot11ApArrayPassword (columns are even SET-able)",
+        "MIB registration: 32-bit OID arrays in .data @file 0x130088/0x1302a4/0x1302cc/0x130300 = (1,3,6,1,4,1,171,10,37,37,*) — D-Link enterprise private MIB",
+        "admin credentials read: var_usersTable@0x459220, magic switch @0x45928c (600 name / 601 password); branch 601: memset(buf,0,256)@0x45930c, a2=0x520000-21396=0x51ac6c '/sys/user:1/password'@0x459330, call t9=xmldbc_get_wb@0x432904 (got slot -31600) @0x459334 with (0,0,path,buf@0x1004491c,255), strlen(buf)@0x459350 stored as var_len, buffer returned as the var value — SNMP GET returns the admin password string; magic 600 same pattern with '/sys/user:1/name'@0x51ac84 (0x520000-21372)",
+        "wpa psk read: var_dot11SecuritiesTable@0x4472f4 @0x4475c0-0x4475fc: xmldbc_get_wb(0,0,'/wlan/inf:1/wpa/wpapsk'@0x51cd54, buf, 255)@0x4475e4, strlen@0x4475fc; second path '/runtime/wlan/inf:1/wpa/wpapsk' @0x448250",
+        "wep keys read: var_dot11WepKeyTable@0x4482c0 @0x448444-0x4484c0: key index from table row, snprintf(fmtbuf,'/wlan/inf:1/wepkey:%d'@0x51cd8c)@0x448464, xmldbc_get_wb@0x448490, strlen@0x4484a8, return buf@0x4484b8",
+        "mssid passphrases read: var_dot11MssidTable refs '/wlan/inf:1/multi/index:%d/passphrase'@0x44e06c and '/runtime/wlan/inf:1/multi/index:%d/passphrase'@0x44f6e0 (gpxref_snmpd.txt)",
+        "data source is raw: xmldbc_get_wb@0x432904 opens the xmldb IPC (0x43239c), sends request (0x432a78), reads the raw response into the caller buffer (0x432b18), closes — no masking/transformation anywhere between DB and SNMP response",
+        "access control: etc/templates/snmp_run.php generates /var/snmpd.conf with `rwcommunity $rwcomm default .1` / `rocommunity $rocomm default .1` (full OID tree, SNMPv1/v2c community auth) and starts `snmpd -c /var/snmpd.conf -f -Le`; anyone holding the community string reads usersTable/dot11SecuritiesTable/dot11WepKeyTable and obtains admin username+password and wireless keys",
+        "cross-check: defaultvalue.gz (factory rgdb.xml) contains /sys/user:1 (name admin) — the same node var_usersTable exposes; snmpd itself has no auth beyond community strings (standard net-snmp v1/v2c)"
+      ],
+      "reason": "D-Link private MIB (1.3.6.1.4.1.171.10.37.37) inside snmpd statically confirmed to serve admin account (/sys/user:1/name+password via var_usersTable@0x459220) and wireless secrets (wpapsk, wepkey:%d, multi-SSID passphrase) as raw SNMP GET values from the XML DB with only v1/v2c community-string protection; firmware 1.16 is within the advisory's '1.16 and earlier'."
+    }
+  ]
+}

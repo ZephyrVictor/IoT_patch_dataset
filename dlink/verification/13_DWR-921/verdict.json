@@ -1,0 +1,53 @@
+{
+  "target_id": "13_DWR-921",
+  "model": "DWR-921 Rev. C3",
+  "firmware_version": "1013010_ALL_multi_20191002 (1.01.3.010, 2019-10-02)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/13_DWR-921/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2024-0717",
+      "verdict": "absent",
+      "version_gate": "pass",
+      "vuln_type": "information disclosure (unauthenticated HTTP GET)",
+      "target_binary": "usr/sbin/httpd (mini_httpd-derived, mipsel, stripped) — no /devinfo handler anywhere",
+      "endpoint": "/devinfo (argument area=notice|net|version)",
+      "parameter": "area",
+      "handler_address": null,
+      "sink": null,
+      "evidence": [
+        "grep -ri devinfo <rootfs> (all 890 files, binary-aware) -> 0 hits; strings -a loop over every ELF in sbin/ + usr/sbin/ + usr/bin/ + lib/*.so -> 0 hits: the string 'devinfo' does not exist anywhere in this firmware, so no URI-matching handler for it can exist",
+        "strings -a usr/sbin/httpd | grep -iE '^area$|notice' -> 0 hits: the CVE's parameter name 'area' and value 'notice' are also absent from the HTTP handler",
+        "objdump -d httpd: ws_select_service @0x40c8e0 strips the leading '/' (caller 0x407d34: a1=path+1), then strncmp(path, name, strlen(name)) against the runtime service table (0x443b34, filled by hook_web_services @0x40bfd0 with names at rodata 0x4314c0-0x4314e7: 'uir','fwupg','das','bakset','log','esp','fldown'); paths without '/' fall to default service *(0x4431a0) = ws_uir (rescue mode swaps default to fwupg only when chdir('/usr/www') fails: 0x40b790 chdir@GOT 0x443964 -> 0x40b7dc flag=1 -> 0x40b918 hook_web_services)",
+        "ws_uir request handler @0x429a98: page = svc+0x14 (default 'index.htm' 0x43267c), then open(page, 0) (GOT 0x4438a0 = open) at 0x429b10-0x429b24; on open() failure with page != 'atsq.txt' (0x4324c4) it sets svc->status = 404 at 0x429bf4-0x429bfc and returns -1 -> GET /devinfo yields 404, not info disclosure",
+        "'common/info.cgi' string in httpd (0x42ff54, xref 0x404ba8) is only a content-type rule for POST form parsing (application/x-www-form-urlencoded at 0x42ff64), not an info endpoint",
+        "companion processes checked (agent.md 4.e): sbin/httpdld = TR-069/OpenAgent diagnostics daemon (strings: /etc/OpenAgent/diagnostics/udpechodiag.info, http_uldiag.info, http_dldiag.info) — no devinfo/chkisg/URI handling; usr/bin/uvm = standalone Uy decoder — no devinfo; lib/*.so — no devinfo; no URI-name IPC forwarding exists"
+      ],
+      "reason": "Device is in the advisory list and build date (2019-10-02) precedes the 20240112 cutoff so the version gate passes, but the /devinfo endpoint does not exist in this firmware generation: the string is absent from every file/binary, and httpd's page dispatch (ws_uir) simply open()s the requested page as a file under /usr/www and returns 404 when missing — no handler, no parameter, no disclosure."
+    },
+    {
+      "cve_id": "CVE-2018-10823",
+      "verdict": "absent",
+      "version_gate": "unclear",
+      "vuln_type": "authenticated command injection (shell command in chkisg.htm Sip parameter)",
+      "target_binary": "usr/sbin/httpd (Uy-template VM web server) — chkisg.htm page removed in Rev C3 generation",
+      "endpoint": "/chkisg.htm (GET params Sip, Ssb, Sgw)",
+      "parameter": "Sip",
+      "handler_address": null,
+      "sink": {
+        "func": "popen (UVM 'Shellex NG' engine, httpd @0x432888 'Shellex NG: %s', popen import) — present in binary but NOT reachable via chkisg.htm because the template file does not exist",
+        "call_site": "n/a (dead chain)"
+      },
+      "evidence": [
+        "version gate: advisory text 'DWR-921 through 2.02' (published 2018-10-17) refers to the Rev A/B v2.x firmware line; this target is Rev C3 v1.01.3.010 built 2019-10-02 (changes.txt 'Firmware: 1.01.3.010 / Date: 2019/10/02') — one year AFTER the CVE, different hardware revision and codebase generation, so the version schemes are not comparable (numerically 1.01.3.010 < 2.02, hence gate recorded unclear and existence decided by code evidence)",
+        "ls usr/www | grep -ci htm -> 61 .htm files, none named chkisg.htm; grep -r 'chkisg' over whole rootfs (incl. plaintext Uy string tables) -> only 2 hits, both client-side JS: internet_prim.htm 'GURL(\"chkisg.htm?rc=&Ntp=0&Sip=\"+fg.I00110001.value+\"&Ssb=\"+fg.I00110002.value+\"&Sgw=\"+fg.I00110003.value...)' and internet_keepalive.htm same go_chkisg() — the exact CVE attack surface referenced by leftover JS but the target page itself was removed",
+        "strings -a usr/sbin/httpd | grep -iE 'chkisg|chk-gw' -> 0 hits; loop over every ELF in rootfs -> 0 hits: no hardcoded URI interception for chkisg.htm and no companion chk-gw script anywhere (the DWR-512 Rev B chain's secondary sink /usr/bin/chk-gw does not exist here)",
+        "strings -a usr/sbin/httpd | grep -xE 'Sip|Ssb|Sgw' -> 0 hits: the server side has no handling of the Sip/Ssb/Sgw parameters (they exist only inside the two Uy files' client-side JS blobs)",
+        "ws_uir handler @0x429a98: page open() at 0x429b10 fails for chkisg.htm (file absent) -> svc->status=404 at 0x429bf4; UVM magic check 'Uy' (0x7955) at 0x429c3c is only reached for existing files, so no Uy program (and no Shellex popen) can run for this URI",
+        "exhaustive sweep of all 61 htm/xml Uy string tables for command-injection patterns (chk-gw, chk_gw, ifconfig, 'route ', 'ping ', nslookup, traceroute, /bin/) -> only fixed commands found: '/bin/date -R' (stat.xml, sync.xml, sys_sntp.htm), 'network_scan 0 &' (network_shell.htm, fixed argument, no bound user variable), 'rm -rf /tmp/www3/atsq.txt' (httpd rodata) — none takes a user-controlled parameter",
+        "form handler names enumerated in httpd (form_admin, form_apply, form_emailsetting, form_log_dnsquery_enable, form_login, form_logout, form_macfilter, form_mydlink_log_opt, form_network, form_portforwarding, form_triggedevent_history_enable, form_wansetting, form_wireless, form_wireless_5g, form_wlan_acl) — no gateway-check form",
+        "companion processes checked (agent.md 4.e): sbin/httpdld (OpenAgent diagnostics), usr/bin/uvm (Uy decoder), lib/*.so — none references chkisg/Sip/chk-gw; the only popen-capable sink is httpd's embedded UVM Shellex engine which requires an existing Uy template file"
+      ],
+      "reason": "The chkisg.htm page (the CVE's entire entry point) does not exist in this Rev C3 build — it was dropped from the www image, leaving only dead client-side JS references — and no hardcoded handler, no Sip/Ssb/Sgw server-side parameter handling, and no chk-gw companion script exist, so the injection chain is unreachable; the UVM popen sink itself is present but only fires for existing Uy templates, none of which embeds a gateway-check command."
+    }
+  ]
+}

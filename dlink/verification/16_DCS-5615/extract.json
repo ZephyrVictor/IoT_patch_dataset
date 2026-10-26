@@ -1,0 +1,33 @@
+{
+  "target_id": "16_DCS-5615",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DCS-5615_FW.v1.01.00.pkg",
+      "sha256": "870e2ce9d33269b35b00749a294c77e64ee503cd362c751d289ffcd82fe949ab",
+      "size_bytes": 13104374
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/16_DCS-5615/rootfs",
+  "rootfs_file_count": 2857,
+  "arch": "arm",
+  "version_strings": [
+    {"where": "rootfs/etc/firmware-version", "string": "PD8166-DLNK-0100d6"},
+    {"where": "zip:DCS-5615 A1__Release_Note_for_FW_v1.01.doc", "string": "Firmware Version: v1.01 (Prom Code V1.00/V1.01, Hardware Version A1)"},
+    {"where": "backupfw.img uImage header", "string": "mozart330o-16-BRB-VVTK-0100a (2013-09-03)"},
+    {"where": "kernel.img uImage header", "string": "linux-2.6.28.9 (built 2014-03-21)"},
+    {"where": "tar member mtimes / gzip mtime", "string": "2014-04-21 02:02 (consistent with release 20140507)"}
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "OEM 平台：Vivotek mozart3v2（内核构建路径 /home/vivotek/lsp/mozart3v2，SoC 'mozart330'），u-boot uImage load addr 0x408000，ARM9 32-bit LSB EABI4 uClibc 0.9.31",
+    "pkg 结构：0x46 字节自定义头 + gzip tar#1（boot.bin/kernel.img/rootfs.img/backupfw.img）+ 尾部 gzip tar#2（setup/ 升级安装脚本 install/flashmgr/firmunpack/flashpartition/brb_patch_before）",
+    "rootfs.img 为魔改 squashfs，魔数 'shsq'（字节交换），标准 unsquashfs 不识别，用 sasquatch 解出（2857 文件/291 目录/331 链接，41MB）",
+    "内部镜像 SHA256：boot.bin=ba563cb68438c6731cccc15bbcc24a260faa012736501d90c6b0ddbf8b1bf921 kernel.img=c7d53076f6c8604f4ed43f5326af1f8ebec4c1592a920afbd2ceeaad98cba288 rootfs.img=1d0906f6bd65376e5c1eb525fdd4958e7ed38664dc57b359f98d05874f16d355 backupfw.img=0e6d49a01c7841c7b7eddbf21abf501dd395f418a7509a76732f1f0ebc7a7a8d",
+    "flash 分区表（setup/flashpartition）：BOOT@0x0/0x20000 KERNEL@0x50000/0x2B0000 BACKUPFW@0x300000/0x200000 ROOTFS@0x500000/0x11A0000 FLASHFS@0x16A0000/0x960000（FLASHFS 配置分区不在固件包内，运行时 jffs2）",
+    "CVE-2026-11497 关键：主 rootfs 中 /etc/conf.d 是悬空符号链接(→/mnt/flash/etc/conf.d)，boa.conf 不在主 rootfs 内；出厂默认 /etc/conf.d/boa/boa.conf（Boa v0.94，User root/Group root，Port 80/AlternatePort 8080，ScriptAlias /cgi-bin/ /usr/share/www/cgi-bin/）实体位于 backupfw.img 内嵌恢复 cpio：extract/_DCS-5615_FW.v1.01.00.pkg.extracted/_46.extracted/_backupfw.img.extracted/_341D.extracted/cpio-root/etc/conf.d/boa/boa.conf",
+    "web 栈：boa httpd（/etc/init.d/httpd），CGI 在 /usr/share/www/cgi-bin/{admin,viewer,operator,dido}，页面在 /www；主 rootfs 有 update_etc/set_http_attraction 等脚本引用 /etc/conf.d/boa/boa.conf（运行时改写 flash 配置）",
+    "版本命名差异（非矛盾）：内部 Vivotek 构建号 PD8166-DLNK-0100d6（1.00 系列 build d6）对应 D-Link 对外版本 v1.01（101_all_en_20140507）；www UI 版本号为运行时变量 system_info_fwversion，无硬编码 1.01"
+  ]
+}

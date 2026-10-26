@@ -1,0 +1,46 @@
+{
+  "target_id": "05_DIR-865L",
+  "status": "ok",
+  "cves": [
+    {
+      "cve_id": "CVE-2018-6530",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2018-6530",
+      "record_source": "local_archive",
+      "refs": [
+        {
+          "url": "https://github.com/TheBeeMan/Pwning-multiple-dlink-router-via-SOAP-proto",
+          "tags": ["Exploit", "Third Party Advisory"]
+        },
+        {
+          "url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog?field_cve=CVE-2018-6530",
+          "tags": ["US Government Resource"]
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2018-6529",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2018-6529",
+      "record_source": "cveawg",
+      "refs": [
+        {
+          "url": "ftp://FTP2.DLINK.COM/SECURITY_ADVISEMENTS/DIR-868L/REVA/DIR-868L_REVA_FIRMWARE_PATCH_NOTES_1.20B01_EN_WW.pdf",
+          "tags": ["x_refsource_CONFIRM"]
+        },
+        {
+          "url": "ftp://FTP2.DLINK.COM/SECURITY_ADVISEMENTS/DIR-860L/REVA/DIR-860L_REVA_FIRMWARE_PATCH_NOTES_1.11B01_EN_WW.pdf",
+          "tags": ["x_refsource_CONFIRM"]
+        },
+        {
+          "url": "https://github.com/TheBeeMan/Pwning-multiple-dlink-router-via-SOAP-proto",
+          "tags": ["x_refsource_MISC"]
+        },
+        {
+          "url": "ftp://ftp2.dlink.com/SECURITY_ADVISEMENTS/DIR-865L/REVA/DIR-865L_REVA_FIRMWARE_PATCH_NOTES_1.10B01_EN_WW.pdf",
+          "tags": ["x_refsource_CONFIRM"]
+        }
+      ]
+    }
+  ]
+}

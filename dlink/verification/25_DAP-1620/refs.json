@@ -1,0 +1,96 @@
+{
+  "target_id": "25_DAP-1620",
+  "status": "ok",
+  "cves": [
+    {
+      "cve_id": "CVE-2025-2620",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-2620",
+      "record_source": "local_archive",
+      "refs": [
+        {
+          "url": "https://vuldb.com/?ctiid.300622",
+          "tags": [
+            "Permissions Required",
+            "VDB Entry",
+            "VDB-300622 | CTI Indicators (IOB, IOC, IOA)"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/?id.300622",
+          "tags": [
+            "Third Party Advisory",
+            "VDB Entry",
+            "VDB-300622 | D-Link DAP-1620 Authentication storage mod_graph_auth_uri_handler stack-based overflow"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/?submit.518969",
+          "tags": [
+            "Submit #518969 | D-Link DAP-1620 1.03 Buffer Overflow",
+            "Third Party Advisory",
+            "VDB Entry"
+          ]
+        },
+        {
+          "url": "https://witty-maiasaura-083.notion.site/D-link-DAP-1620-mod_graph_auth_uri_handler-Vulnerability-1afb2f2a6361809ea7f2dc4df3b85f1f",
+          "tags": [
+            "Exploit",
+            "Third Party Advisory"
+          ]
+        },
+        {
+          "url": "https://www.dlink.com/",
+          "tags": [
+            "Product"
+          ]
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2025-2621",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-2621",
+      "record_source": "local_archive",
+      "refs": [
+        {
+          "url": "https://vuldb.com/?ctiid.300623",
+          "tags": [
+            "Permissions Required",
+            "VDB Entry",
+            "VDB-300623 | CTI Indicators (IOB, IOC, IOA)"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/?id.300623",
+          "tags": [
+            "Third Party Advisory",
+            "VDB Entry",
+            "VDB-300623 | D-Link DAP-1620 storage check_dws_cookie stack-based overflow"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/?submit.518980",
+          "tags": [
+            "Submit #518980 | D-Link DAP-1620 1.03 Buffer Overflow",
+            "Third Party Advisory",
+            "VDB Entry"
+          ]
+        },
+        {
+          "url": "https://witty-maiasaura-083.notion.site/D-link-DAP-1620-check_dws_uid-Vulnerability-1b4b2f2a63618025b049f6e62a1835c0",
+          "tags": [
+            "Exploit",
+            "Third Party Advisory"
+          ]
+        },
+        {
+          "url": "https://www.dlink.com/",
+          "tags": [
+            "Product"
+          ]
+        }
+      ]
+    }
+  ]
+}

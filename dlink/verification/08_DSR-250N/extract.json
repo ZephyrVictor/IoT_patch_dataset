@@ -1,0 +1,49 @@
+{
+  "target_id": "08_DSR-250N",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "dsr-250N_fw_reva1_317b901c_all_en_20220612/1_DSR-250N_A1_FW211_WW",
+      "sha256": "9237fb99ad57fbbe5e10681c87267e34a96ec25744727f4a286160e31d066789",
+      "size_bytes": 24969216
+    },
+    {
+      "zip_entry": "dsr-250N_fw_reva1_317b901c_all_en_20220612/2_DSR-250N_A1_FW2.11RQ_WW",
+      "sha256": "f25fed3ff815ee41792378abeb3826d799125ad13b0c95341eb39ffdc28f1dc7",
+      "size_bytes": 24969216
+    },
+    {
+      "zip_entry": "dsr-250N_fw_reva1_317b901c_all_en_20220612/3_DSR-250N_A1_A2_A3_FW2.11Q_WW",
+      "sha256": "7d6261a4d62ce14577077791e8cccc4019d264dcda705d3812a3810ff1b1ca61",
+      "size_bytes": 24969216
+    },
+    {
+      "zip_entry": "dsr-250N_fw_reva1_317b901c_all_en_20220612/4_DSR-250N_A1_A2_A3_A4_FW3.11Q202E_WW",
+      "sha256": "d8b3c915963f11bad8ef83ef9c7d22786bb96cab69ba98c32d9e361c50277e65",
+      "size_bytes": 25784320
+    },
+    {
+      "zip_entry": "dsr-250N_fw_reva1_317b901c_all_en_20220612/5_DSR-250N_Ax_FW3.17B901C_WW",
+      "sha256": "d290965ec70b52074da92c23082f76559777d5a6a02566cc1c81d3ede7f6199d",
+      "size_bytes": 24039424
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/08_DSR-250N/rootfs",
+  "rootfs_file_count": 3188,
+  "arch": "arm",
+  "version_strings": [
+    {
+      "where": "etc/dlink_version",
+      "string": "3.17B901C_WW"
+    }
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "版本匹配镜像为 5_DSR-250N_Ax_FW3.17B901C_WW（厂商头 @0x7c 完整名 'DSR-250N_Ax_FW3.17B901C_WW'、@0x94 '3.17B901C'、@0x1c '003.017B001'、@0x54 构建日期 'Fri Jun 10 19:16:35 2022'，与清单 317b901c_all_en_20220612 一致）；其余 4 个镜像是升级链中的旧版本（FW211/FW2.11RQ/FW2.11Q/FW3.11Q202E），未解包",
+    "镜像布局：0x0 厂商头、0x200 ARM zImage、0x500000 squashfs v4.0 LE lzma（18.8MB 主 rootfs）、0x16EC000 处 312B 迷你 squashfs（仅 pre.sh/post.sh，位于 extract/_5_DSR-250N_Ax_FW3.17B901C_WW.extracted/squashfs-root-0）；binwalk -Me 直接解出，无需 sasquatch",
+    "rootfs_path 为符号链接，真实目录 extract/_5_DSR-250N_Ax_FW3.17B901C_WW.extracted/squashfs-root；rootfs 扁平结构（bin/etc/lib/var/auth/udev/share/pkgMgmt，无 sbin/usr），ARM 32-bit LE EABI5（Cavium SoC，kernel 2.6.31.1-cavm1）",
+    "版本串唯一：etc/dlink_version = '3.17B901C_WW'，etc/ 与 var/www/ 的 grep 及 bin/ 前 20 个 ELF 的 strings 扫描均无其他命中，无矛盾版本串",
+    "Web 栈（供后续 CVE-2024-57376 验证）：lighttpd（etc/lighttpd.config）+ bin/cgi（6160B ARM ELF 分发器）+ var/www（865 个 .html/.sh，TeamF1/Alpha 代码基）；rootfs 无 www/ 或 htdocs/，web 根为 var/www"
+  ]
+}

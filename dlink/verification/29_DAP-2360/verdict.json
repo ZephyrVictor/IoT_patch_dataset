@@ -1,0 +1,59 @@
+{
+  "target_id": "29_DAP-2360",
+  "model": "DAP-2360 Rev. B",
+  "firmware_version": "2.03rc026 (etc/config/buildver 2.03, buildrev v203rc026v2316s52766)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/29_DAP-2360/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2024-28436",
+      "verdict": "confirmed",
+      "version_gate": "unclear",
+      "vuln_type": "reflected XSS via register_globals (advisory words it 'execute arbitrary code')",
+      "target_binary": "www/session_login.php rendered by /sbin/atp + /usr/sbin/xmldb (ephp engine)",
+      "endpoint": "/session_login.php",
+      "parameter": "reload (GET/POST query)",
+      "handler_address": "atp procPage@0x4014f0 -> xmldb xmldb_ephp@0x40e648 -> ephp parser@0x40dfb0",
+      "sink": {
+        "func": "client_puts (raw echo of variable value, no HTML/JS escaping)",
+        "call_site": "0x40e3fc"
+      },
+      "evidence": [
+        "grep -n 'reload' www/session_login.php -> 14: var wr_reload = \"<?=$reload?>\";  (raw reflection of GET param into JS string literal)",
+        "grep -n 'session_login' www/model/__auth_check.php -> 39: if($AUTH_RESULT==\"401\") {require(\"/www/session_login.php\"); exit;}  (rendered pre-auth as login page)",
+        "grep -n 'External' etc/templates/httpd/httpd.php -> External { /sbin/atp { php txt } /sbin/xgi { xgi bin dcf log } /sbin/sgi { sgi } }  (.php dispatched to /sbin/atp)",
+        "objdump -d sbin/httpd, process_request@0x40fab8 0x411264-0x4112a0: strcmp(ext,\"xgi\"@0x423480)/\"_int\"@0x423484 -- httpd-level session filter only gates xgi/_int; .php reaches atp without session",
+        "objdump -d sbin/atp, atp_main@0x401b30 -> procPage@0x4014f0: getenv(\"QUERY_STRING\"@0x76dc), buffer \"%s\\nsid=%s\"+uri_query+\"&\"+query_string, URL-decode (%XX, '+'->' '), '&'->'\\n', lrgdb_ephp call site 0x401adc",
+        "objdump -d usr/sbin/xmldb, xmldb_ephp@0x40e648: fopen(first line), split each line at '=' (li a1,61 @0x40e750), register_globals via jal 0x405a58 -> attacker-controlled $reload registered as PHP variable",
+        "objdump -d usr/sbin/xmldb, parser@0x40dfb0: detects '<?=' (li v0,61 @0x40e388), variable lookup jal 0x4059b0, value echoed via client_puts@0x40e3fc -> client_putc@0x4020c8 byte-by-byte raw to stdout",
+        "grep -c htmlspecialchars in strings of sbin/atp + usr/sbin/xmldb -> 0 matches in both (no escaping primitive exists in the render chain)"
+      ],
+      "reason": "Full pre-auth chain: httpd dispatches .php to atp without session check (only xgi/_int are session-filtered), atp passes URL-decoded QUERY_STRING to xmldb ephp engine which register_globals-izes reload=..., session_login.php line 14 reflects it raw into a JS string via client_puts with zero escaping -- XSS confirmed exactly as advisory describes."
+    },
+    {
+      "cve_id": "CVE-2022-38873",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "improper firmware-image validation (attacker-modified header accepted) -> arbitrary flash write -> DoS/brick",
+      "target_binary": "sbin/httpd (upload_image._int handler)",
+      "endpoint": "/upload_image._int (firmware upload form www/tool_fw.php:203, POST multipart)",
+      "parameter": "uploaded firmware image bytes (header magic/signature, per-record mtd device, flash offset, length, payload)",
+      "handler_address": "upload_image@0x418a10 (validator@0x418864, burn@0x4181d4)",
+      "sink": {
+        "func": "system(\"umount %s\") + fopen(mtd,\"w+\") + fwrite to flash partition",
+        "call_site": "0x41828c (system umount); fwrites at 0x41835c (36B header), 0x41837c (124B record hdr), 0x4183c8 (payload)"
+      },
+      "evidence": [
+        "cat rootfs/etc/config/buildver etc/config/buildrev -> 2.03 / v203rc026v2316s52766; advisory range 'DAP-2360 v2.10rc050 and earlier' -- 2.03rc026 in range, version gate pass",
+        "sed -n '203p' www/tool_fw.php -> <form ... action=... enctype=multipart/form-data> targeting upload_image._int (authenticated firmware upload UI)",
+        "objdump -d sbin/httpd, upload_image@0x418a10: magic@0x20 must equal const@0x413cd0 (0x20080321); strncmp(g_signature@0x436790, data, 32)@0x418b24 with signature 'wapn25_dkbs_dap2360b' read from /etc/config/image_sign (public plaintext, no key); '_aLpHa' engineering bypass via bytes written at 0x418ba4-0x418bc8, strncmp@0x418bc8",
+        "objdump -d sbin/httpd, upload_image@0x418a10: after signature check only calls validator jal 0x418864 and system(\"rgdb -i -s /runtime/sys/fw_size '%d'\"); NO version/model/buildrev comparison anywhere in upload_image -- a header-modified image with any version string passes",
+        "objdump -d sbin/httpd, validator@0x418864: per record computes keyless MD5 over only the record's own fields MD5Update(rec+0x48,4)+MD5Update(rec+0x4C,32)+MD5Update(rec+0x7C,len) then memcmp(digest,rec+0x6C,16) -- MD5 is unkeyed so an attacker recomputes it for any modified record; chain must merely end at file size",
+        "objdump -d sbin/httpd, burn@0x4181d4: sprintf(buf, \"umount %s\"@0x424590, mtd_name=rec+0x4C) -> system()@0x41828c; fopen(mtd_name, \"w+\"@0x423D5C); fseek(offset from rec+0x48); fwrite at 0x41835c/0x41837c/0x4183c8 -- mtd device, flash offset, length and payload all read from the uploaded attacker-controlled image",
+        "objdump -d sbin/httpd, burn@0x4181d4 loop 0x418424-0x41844c: iterates all records (s3 += len+124 while s3 < size); syslog \"[SYSACT]Firmware update success\"@0x4245b8",
+        "objdump -d sbin/httpd, check_upgrad@0x41848c: >=4s delay, system(\"/etc/scripts/misc/haltdemand.sh\"), type 1 -> burn@0x4181d4, then fopen(\"/proc/driver/system_reset\",\"r+\") write \"1\\n\" -> auto-reboot into bricked flash",
+        "readelf -x .rodata sbin/httpd @0x423D5C -> \"w+\"  (write mode open of mtd device, confirms raw overwrite)"
+      ],
+      "reason": "Firmware upload validation is purely structural (public plaintext signature + unkeyed self-consistent MD5 + magic constant) with no version/model check, and burn() writes every record field (device, offset, length, payload) directly to flash -- a crafted/modified-header image bricks the device exactly as the advisory states; endpoint requires an authenticated admin session (httpd gates '._int'), matching the advisory's attacker model of malicious upload."
+    }
+  ]
+}

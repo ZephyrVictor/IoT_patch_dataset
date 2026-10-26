@@ -1,0 +1,53 @@
+{
+  "target_id": "06_DWR-512",
+  "model": "DWR-512 Rev. B1",
+  "firmware_version": "V2.00b03 (20140318_D-Link_DWR-512B1_V2.00b03.bin, 2014-03-18, HW B1)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/06_DWR-512/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2018-10823",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "OS command injection via URL parameter (CWE-78)",
+      "target_binary": "usr/sbin/httpd (Uy 模板 VM) + /usr/bin/chk-gw shell 脚本",
+      "endpoint": "/chkisg.htm (HTTP GET/POST)",
+      "parameter": "Sip (Ssb/Sgw 同链路同 sink)",
+      "handler_address": "0x41fb20 (get_item 模板变量绑定循环; uvm_envar_set@0x4254f4; op-0x0F 执行处理器@0x421f6c)",
+      "sink": {
+        "func": "popen",
+        "call_site": "0x42207c",
+        "function": "uvm op-0x0F handler@0x421f6c (get_item 内); 二级 sink: /usr/bin/chk-gw `echo $1 |cut` 反引号内未加引号 $1"
+      },
+      "evidence": [
+        "strings/xxd rootfs/usr/www/chkisg.htm: 'Uy' 模板，变量表顺序 Shenv,Suobj,Ntp,Sip,Ssb,Sgw,Sd1,Sd2,Nmt,Sma,Nii → Sip 为第 4 个变量(index 3)",
+        "xxd rootfs/usr/www/chkisg.htm @0x60 程序段: `0e 54 70 00 31 b1 fc 08 54 78 00 31 b1 fb 08 54 7a 00 31 b1 fa 08 54 7c 00 31 0e 4f 08` = 命令捕获 ON→拼接 'chk-gw '+reg[0xFC]+' '+reg[0xFB]+' '+reg[0xFA]+' '→捕获 OFF→op 0x4F 执行",
+        "httpd_annotated.asm 0x41fd0c-0x41fd30: `lw a0,32(s8); lb a1,0(name); lw a2,1064(s8); jalr GOT[101] uvm_envar_set` — a0=模板变量序号(0x41fb1c `sw zero,32(s8)` 清零、0x41ffd4 自增)，a2=HTTP 请求参数值",
+        "httpd_annotated.asm 0x425a3c-0x425a6c (uvm_envar_set 出口): `subu v0,255,a0; sll v0,2; sw old_cursor,28(ctx+(255-idx)*4)` → reg[255-var_index]=追加值在字符串表的偏移；Sip(index 3)→reg[0xFC]",
+        "httpd_annotated.asm 0x42557c ('S' 分支): memcpy(ctx[0x14]+ctx[0x18], value, len+1) — 请求值原样追加进字符串表，全程无元字符过滤/长度检查",
+        "httpd_annotated.asm 0x42183c-0x421938 (emit 公共尾): ctx[0x424]!=0(捕获模式)时 memcpy(ctx+0x42C+ctx[0x428], src, len) — 命令缓冲区组装",
+        "httpd_annotated.asm 0x421f6c-0x42207c (op 0x0F 处理器): `popen(ctx+0x42C, \"r\")`(mode 'r'@0x4288E4)，随后 fgets 循环把子进程 stdout 逐行回显到 HTTP 响应",
+        "head -8 rootfs/usr/bin/chk-gw: `#!/bin/sh` / `ip1=\\`echo $1 |cut -d \".\" -f 1\\`` / `$((ip1 & nm1))` — $1=Sip 在反引号与算术展开中未加引号，构成第二级注入 sink；其 usage 'ip_addr subnet_addr gateway_addr' 证实 Sip/Ssb/Sgw 分别为 $1/$2/$3"
+      ],
+      "reason": "完整链路二进制级证实：GET/POST /chkisg.htm?Sip=<cmd> → httpd get_item 将 Sip 值绑定到 reg[0xFC]（uvm_envar_set 出口 reg[255-idx]）→ chkisg.htm 的 Uy 程序把 'chk-gw <Sip> <Ssb> <Sgw>' 写入命令缓冲 → op 0x4F popen() 经 /bin/sh 执行（0x42207c）；全路径无长度检查与元字符过滤，且 /usr/bin/chk-gw 对 $1 未加引号双重可注入。"
+    },
+    {
+      "cve_id": "CVE-2018-19300",
+      "verdict": "absent",
+      "version_gate": "pass",
+      "vuln_type": "web 目录 CLI 调试文件 EXCU_SHELL 经 HTTP GET 触发的命令执行",
+      "target_binary": "(声称) /usr/www/EXCU_SHELL",
+      "endpoint": "GET /EXCU_SHELL",
+      "parameter": "crafted HTTP headers",
+      "handler_address": null,
+      "sink": null,
+      "evidence": [
+        "grep -ril EXCU_SHELL rootfs/ → 0 命中（583 文件，含已合并的 web squashfs；Uy 文件字符串表为明文——chkisg.htm 原始字节可直接读出 'chk-gw'、'GURL' 等串——故 grep 覆盖 Uy 压缩内容）；find -iname '*excu*' 亦无结果",
+        "strings -a rootfs/usr/sbin/httpd | grep -iE 'EXCU|SHELL' → 无 EXCU_SHELL；httpd 完整 URI 面 = hook_web_services@0x408d50 注册的 ws_uir(/uir/status.htm, /uir/401.htm)/fwupg/bakset/fldown/ws_das/ws_mydlink/ws_esp/ws_log + /usr/www 静态文件，无 EXCU_SHELL 路由",
+        "httpd 导出对象 pages_in_ram(char[2][32]@0x46917c) 原始字节 dump = {'rebo.htm', ''} → 运行时 /ram/www 仅复制 rebo.htm，不存在能生成 EXCU_SHELL 的运行时路径",
+        "strings -a rootfs/bin/busybox | grep -cE '^httpd$' → 0；rootfs/bin|sbin 无 boa/goahead/thttpd/mini_httpd → usr/sbin/httpd 是唯一 HTTP 监听进程，无其他 web 服务器可承载该文件",
+        "伴生进程检查(规则 4.e): strings 扫描 commander、csmanuds、csmankits、csmtool、libcsman.so、libpsec.so、libupgbuf.so、cmd.so 均无 EXCU_SHELL/EXCU 引用；csmanuds 与 libcsman.so 无 system/popen/execve 导入；httpd 全部 16 处 system() 调用点逐一审计均为固定命令(killall-*.sh/reboot/mkdir 等)或启动期逻辑，唯一运行期 popen 即上述 chkisg 链"
+      ],
+      "reason": "版本门通过(2.00b03 < 2.02b01)但代码证据显示 absent：该构建 rootfs(含 web squashfs 与全部 Uy 明文字符串表)中不存在 EXCU_SHELL 文件，httpd 及其 4 个链接库、伴生守护进程(commander/csmanuds/csmankits/csmtool)中亦无同名 URI/字符串处理逻辑；httpd 是唯一 HTTP 服务且其 URI 表已枚举完毕。"
+    }
+  ]
+}

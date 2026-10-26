@@ -1,0 +1,34 @@
+{
+  "target_id": "14_DSR-500N",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DSR-500_Bx_FW3.14_RU",
+      "sha256": "4e90b69c8941ed5ead2c8c802c0f1063bc02feb628d0b229e0171f5345366b27",
+      "size_bytes": 44175360
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/14_DSR-500N/rootfs",
+  "rootfs_file_count": 3171,
+  "arch": "mips",
+  "version_strings": [
+    {"where": "rootfs/etc/dlink_version", "string": "3.14_RU"},
+    {"where": "rootfs/etc/firmVersion", "string": "003.014B002"},
+    {"where": "rootfs/etc/firmHdr.img", "string": "003.014B002 + 3.14_RU (copy of vendor header)"},
+    {"where": "image header @0x1c", "string": "003.014B002"},
+    {"where": "image header @0x7c", "string": "Bx_FW3.14_RU"},
+    {"where": "image header @0x54", "string": "Wed Apr 10 18:50:37 2019 (build date)"}
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "ZIP contains 2 entries: DSR-500_Bx_FW3.14_RU (firmware image) + Release Notes PDF (excluded). Not the 9-image upgrade chain seen in DSR-150N 3.17B901C packages.",
+    "Image layout: 0x0-0x200 vendor header; 0x200 UBI image #1 (57 PEBs x 128KB, static vol 'kernel' = vmlinux.64.lzma 5401478B, Linux 3.10.20-rt14-Cavium-Octeon, gcc 4.7.0 Cavium SDK_3_1_0 build 33); zeros to 0x800000; 0x800000 UBI image #2 (273 PEBs, dynamic vol 'UBI' = UBIFS rootfs, image_seq 539392355, ends 0x2a20000); tail mini squashfs @0x2a20000 (pre.sh/post.sh/upgradePrep.sh/releaseMilestone.txt upgrade-milestone scripts, root mount /pfrm2.0).",
+    "UBIFS uses vendor compr_type 3 = per-4KB-block XZ compression (not mainline zstd; kernel is 3.10.20 with incompressible blocks stored raw under the same flag). Stock ubireader passes these through raw producing corrupt files; patched ~/.local/lib/python3.12/site-packages/ubireader/ubifs/misc.py decompress() to try XZ then fall back to raw. After patch: clean extraction, 0 warnings.",
+    "Arch detail: MIPS64r2 N32 big-endian (Cavium Octeon), 615 ELF + 771 Lua-5.1-bytecode files. Interpreter /lib32/ld.so.1. Differs from DSR-150N 3.17 (ARM Cavium) despite shared TeamF1 web stack.",
+    "Web stack (matches DSR series memory): var/www TeamF1 HTML/Lua, bin/cgi Kepler cgilua dispatcher, etc/kepler.config, share/lua/5.1/teamf1lualib. var/www/*.lua and teamf1lualib/*.lua are Lua 5.1 bytecode (unluac-able).",
+    "CVE-2024-57376 anchors: lib/lua/5.1/captivePortalLib.so exists (MIPS N32 BE, stripped, dynsym intact), lua_duaLogoutInfoGet @ 0x2cd8 (vs 0x1854 in DSR-150N 3.17); var/www/duaLogout.lua (153B bytecode) + var/www/duaLogout.cgi present; platform.cgi pre-auth whitelist pattern expected per DSR memory.",
+    "Multi-model firmware: etc scripts key on PRODUCT_ID/MODEL_ID for DSR-500_Bx / DSR-1000_Bx / DSR-500AC / DSR-1000AC.",
+    "Intermediates kept in scratch: pkg/ (zip contents), ubi.img (kernel UBI), ubi2.img (rootfs UBI), ubi_out/ (kernel vmlinux.64.lzma), mini_out/ (upgrade scripts), rootfs/ (final)."
+  ]
+}

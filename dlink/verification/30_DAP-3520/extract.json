@@ -1,0 +1,36 @@
+{
+  "target_id": "30_DAP-3520",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DAP3520-firmware-v116-rc040.bin",
+      "sha256": "042a2af579d9fa0acb46206ca7825bf8bb6e3b76585c4965a8f96b47bf3d0cdc",
+      "size_bytes": 4739264
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/30_DAP-3520/rootfs",
+  "rootfs_file_count": 635,
+  "arch": "mips",
+  "version_strings": [
+    {"where": "etc/config/buildrev", "string": "v116rc040v02316s34090"},
+    {"where": "etc/config/buildver", "string": "1.16"},
+    {"where": "etc/config/buildno", "string": "d21b"},
+    {"where": "etc/config/builddate", "string": "11:14:44 02/01/2013"}
+  ],
+  "contradicting_version_strings": [
+    {"where": "image header @0x28 (upgrade record version field)", "string": "v115rc026v02316sdap3520"}
+  ],
+  "errors": [],
+  "notes": [
+    "ZIP 内另一条目为说明文档 'DAP-3520 Firmware Release Note v116.pdf'，已排除",
+    "镜像格式为 DAP 家族 wapn 明文头：@0x0 image_sign 'wapnd04_dkbs_dap3520'（与 etc/config/image_sign 一致）、@0x20/0x24 magic 0x21030820、@0x58 buildno 'd21b'、@0x70 '/dev/mtdblock/1'、@0xA0 LZMA 内核(props 0x5D, 解压后约2.5MB, Linux 2.6.15)、@0xD00A0 PackImg 分隔、@0xD00C0 squashfs",
+    "squashfs 为 3.0 大端（803 inodes, block 64KB, created 2013-02-01），标准 unsquashfs 不支持 BE sqfs3，用 sasquatch 解出（另 binwalk -Me 副本在 scratch/30_DAP-3520/extract/_img_copy.bin.extracted/squashfs-root，binwalk 对符号链接做了 sanitize，权威副本为 scratch/30_DAP-3520/rootfs）",
+    "rootfs 构成：635 文件 + 50 目录 + 118 符号链接（=803 inodes，无解包失败、无 0 字节文件）",
+    "升级记录链为单记录：length@0x68=0x00485020 覆盖 0xA0 至文件尾（kernel+rootfs 连续体，整体刷 /dev/mtdblock/1）",
+    "镜像头 @0x28 版本串 'v115rc026v02316sdap3520' 为上一版本号残留（rootfs 内 buildrev 实为 v116rc040），与清单 1-16rc040 矛盾，列为 contradicting；rootfs 内无任何 v115 串",
+    "builddate 2013-02-01 与 ZIP 发布日期 2013-09-13 相差约 7 个月，符合该家族惯例，不算矛盾",
+    "ELF 内无版本串（前 20 个 ELF strings 扫描零命中），版本指纹只在 etc/config/，与 DAP 家族规律一致；www/version.php 运行时读 /etc/config/buildver",
+    "架构：MIPS 32-bit MSB, MIPS32 rel1, uClibc（top ELF: lib/modules/mdk_client.out 静态、lib/libcrypto.so.0.9.8、usr/sbin/snmpd）；drvver=LSDK-WLAN-CaviumFus7.3.0.449（Cavium Fusion 平台）",
+    "Web 栈：www/ 为 PHP UI（101 文件，含 session_login.php，即 CVE-2024-28436 所指组件）+ htdocs/web；sbin/httpd + /usr/sbin/atp（sgi/xgi 符号链接，elbox atp 栈）；usr/sbin/snmpd 存在（CVE-2016-1559 相关）"
+  ]
+}

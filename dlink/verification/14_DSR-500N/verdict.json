@@ -1,0 +1,39 @@
+{
+  "target_id": "14_DSR-500N",
+  "model": "DSR-500N Rev. BX",
+  "firmware_version": "3_14_all_en_20190624 (etc/dlink_version=3.14_RU, etc/firmVersion=003.014B002)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/14_DSR-500N/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2024-57376",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "stack buffer overflow (CWE-120), unauthenticated RCE",
+      "target_binary": "lib/lua/5.1/captivePortalLib.so (MIPS64r2 N32 BE, stripped, dynsym intact)",
+      "endpoint": "/platform.cgi (POST action=duaLogout or urlpath=duaLogout.cgi; equivalent direct /duaLogout.cgi)",
+      "parameter": "externalCpResult (whole-string length, and clientIp/reason JSON values)",
+      "handler_address": "0x2cd8 (lua_duaLogoutInfoGet, size 0x21c)",
+      "sink": {
+        "func": "strcpy",
+        "call_site": "0x2d90 (whole arg -> 512B stack buffer at sp+0, frame 1024B, saved ra @sp+1016); 0x2e54 (clientIp value -> 50B buffer sp+888, reason value -> 50B buffer sp+832)"
+      },
+      "evidence": [
+        "version gate: cat rootfs/etc/dlink_version -> 3.14_RU; cat rootfs/etc/firmVersion -> 003.014B002 — inside advisory range 'from 3.13 to 3.17B901C' (NVD CPE versionStartIncluding=3.13, versionEndIncluding=3.17B901C)",
+        "entry: grep THTTPD_CGI_PATTERN rootfs/etc/kepler.config -> \"platform.cgi|dbglog.cgi|quickvpn.cgi|upgradeStatus.cgi|upgradeStatusReboot.cgi\" (platform.cgi is a CGI entry)",
+        "pre-auth: strings -a rootfs/var/www/platform.lua -> RUNTIME_LOGIN_PAGE, MOB_RUNTIME_LOGIN_PAGE, DUA_EXT_CP_LOGIN_PAGE, DUA_AUTH_PAGE, DUA_LOGOUT_PAGE, duaLogout.lua, duaLogout.cgi, duaLogout, revalidate (same pre-auth whitelist pattern as confirmed DSR-150N 3.17B901C)",
+        "page: cat rootfs/var/www/duaLogout.cgi -> sh wrapper exporting PATH_INFO=/platform.lua then exec bin/cgi (Kepler cgilua); strings rootfs/var/www/duaLogout.lua -> 'require teamf1lualib/duaCP', 'duaCP', 'logout'",
+        "param: grep -ac externalCpResult rootfs/share/lua/5.1/teamf1lualib/duaCP.lua -> 4; strings duaCP.lua -> logout, parse_logoutInfo, logoutProcess, hashValidate, cgilua, REQUEST_METHOD, externalCpResult, duaLogoutInfoGet, require teamf1lualib/captivePortal, captivePortalLib (hashValidate only feeds 'reason', does not gate the copy)",
+        "binary: mips-linux-gnu-objdump -T rootfs/lib/lua/5.1/captivePortalLib.so -> '00002cd8 g DF .text 0000021c Base lua_duaLogoutInfoGet'; imports contain strcpy, lua_tolstring, strtok, strchr, strlen — NO strncpy/strlcpy in dynsym",
+        "handler disasm (mips-linux-gnu-objdump -d, full dump in scratch/14_DSR-500N/analysis/captivePortalLib.dis): 0x2cd8 addiu sp,sp,-1024; 0x2cf0 sd ra,1016(sp); 0x2d58 jalr memset(sp,0,512) [GOT 0x143C4->stub 0x3790=memset]; 0x2d6c memset(sp+512,0,320)",
+        "sink 1: 0x2d78-0x2d94 -> t9=GOT[0x14358]=lua_tolstring, call lua_tolstring(L,1,NULL); then 0x2d88 move a0,sp; 0x2d8c lw t9,-32612(gp)=GOT[0x1438C]=strcpy stub 0x3840; 0x2d90 jalr strcpy(sp /*512B stack buffer*/, attacker string) — NO length check; >1024 bytes overwrites saved ra @sp+1016",
+        "parse: 0x2d9c lw t9,-32540(gp)=GOT[0x143D4]=0x2b50 duaServerResponsePrase; 0x2da0 jalr duaServerResponsePrase(sp, sp+512) — 3.14 splits tokenizer (strchr '\"'/':' based, no copy) from consumer loop, unlike 3.17 where copies were inside",
+        "sink 2: consumer loop 0x2e08-0x2e60: strcmp(key, \"clientIp\" @rodata 0x3B58) -> strcpy(sp+888 /*50B*/, value) and strcmp(key, \"reason\" @rodata 0x3B68) -> strcpy(sp+832 /*50B*/, value), both via 0x2e44 lw t9,-32612(gp)=strcpy, jalr @0x2e54, a1=value ptr taken from tokenized attacker string — value length unbounded; 50B buffer at sp+888 reaches saved s0 @sp+944 (+56) and saved ra @sp+1016 (+128)",
+        "GOT resolution (no .rel.plt; slots point to in-library PLT stubs, stub addr = dynsym st_value): objdump -s -j .got -> 0x143C4=0x3790, 0x14358=0x38e0, 0x1438C=0x3840, 0x143D4=0x2b50; objdump -T -> 0x3790=memset, 0x38e0=lua_tolstring, 0x3840=strcpy, 0x2b50=duaServerResponsePrase; gp=0x1C2F0 (lui gp,0x2; addu gp,gp,t9; addiu gp,gp,-27112 at 0x2ce4-0x2cf4)",
+        "registration: .rodata 0x3C98 'duaLogoutInfoGet' in luaopen_captivePortalLib@0x35d8 luaL_register table; duaCP.lua bytecode references 'duaLogoutInfoGet' — Lua call chain closed",
+        "cross-check 3.14 vs 3.17: 'clientMac' @rodata 0x3B48 is NOT referenced anywhere in this .so (grep addiu.*15160 in dis -> no hits); 3.14 logout-info parser keys are clientIp/reason — but both sinks are key-independent (sink 1 overflows on total externalCpResult length alone)",
+        "same vulnerable pattern in sibling handlers (code-family consistency, not needed for verdict): lua_duaNotificationGet strcpy(sp,str)@0x2fd0, lua_duaResponseGet strcpy(sp,str)@0x3304"
+      ],
+      "reason": "Version 3.14_RU is inside the advisory range [3.13, 3.17B901C]; the unauthenticated chain platform.cgi -> platform.lua DUA_LOGOUT_PAGE whitelist -> duaLogout.lua -> duaCP.logout/parse_logoutInfo(externalCpResult) -> captivePortalLib.so lua_duaLogoutInfoGet@0x2cd8 is fully present, and the handler copies the attacker-controlled string with unbounded strcpy@0x2d90 into a 512-byte stack buffer (frame 1024B, saved ra at sp+1016) and JSON values clientIp/reason with strcpy@0x2e54 into 50-byte stack buffers, with no length check anywhere (no strncpy import, no strlen guard); all processing is in-process in bin/cgi (Kepler cgilua dlopen'd .so), no IPC forwarding to companion daemons to check."
+    }
+  ]
+}

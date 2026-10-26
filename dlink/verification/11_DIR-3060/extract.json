@@ -1,0 +1,53 @@
+{
+  "target_id": "11_DIR-3060",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DIR-3060_fw_reva_111b01_ALL_multi_20200106/DIR-3060_RevA_Firmware111B01.bin",
+      "sha256": "4e7da680d4be8bcb7944ab019bb173346579fbe4d3e2f9ee06f4166b4900730f",
+      "size_bytes": 18092361
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/11_DIR-3060/rootfs",
+  "rootfs_file_count": 1643,
+  "arch": "mipsel",
+  "version_strings": [
+    {
+      "where": "fw_dec.bin image header block @0x40 (uImage-embedded version info, NUL-separated fields)",
+      "string": "DIR-3060 | V1.11B01 | A1"
+    },
+    {
+      "where": "rootfs/bin/rc @0x89a54 (default config blob)",
+      "string": "sw_ex_version=V1.11; sw_in_version=B01; hw_version=A1"
+    },
+    {
+      "where": "rootfs/bin/prog.cgi (strings; identical strings in bin/prog-cgi)",
+      "string": "V1.11 / B01 / 2020-01-06 16:19:22"
+    },
+    {
+      "where": "rootfs/bin/rc @0x7c450",
+      "string": "2020-01-06 16:19:22"
+    },
+    {
+      "where": "rootfs/bin/busybox",
+      "string": "BusyBox v1.22.1 (2020-01-06 15:52:44 CST)"
+    },
+    {
+      "where": "rootfs/bin/prog.cgi (strings) / vmlinux IKCONFIG",
+      "string": "linux 3.10.14"
+    }
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "Firmware is SHRS-encrypted (new D-Link scheme, AES-128-CBC). Decrypted with the public 0xricksanchez/dlink-decrypt PoC; the AES key C05FBF1936C99429CE2A0781F08D6AD8 (derived from static blobs inside the on-device imgdecrypt) is still valid for 1.11b01. All three embedded SHA512 integrity checks (enc-payload, dec-payload, dec-payload+key) passed.",
+    "SHRS header layout: len_no_padding@0x4=18080638, len_padded@0x8=18080640, IV@0xC=67c6697351ff4aec29cdbaabf2fbe346, SHA512s @0x1C/0x5C/0x9C, 512B zero pad, 2x512B signature, ciphertext@0x6DC.",
+    "Extraction chain: SHRS decrypt -> uImage (Linux/MIPS, LZMA, load 0x81001000, built 2020-01-06) -> vmlinux.bin 23550400 bytes -> LZMA blob @0x8834EC (dict 32MB, size -1) -> 70373888-byte cpio(newc) initramfs -> rootfs. No squashfs: rootfs is a kernel-embedded initramfs (Realtek SDK).",
+    "Decrypted artifacts kept in scratch: fw_dec.bin (AES plaintext image), vmlinux.bin (uncompressed kernel), rootfs_blob.bin (cpio archive).",
+    "9965 high-entropy trailing bytes appended after the SHRS ciphertext in the .bin (post signature/metadata; not part of the AES container).",
+    "CVE-2021-28144 path present: /bin/prog.cgi (1061332 bytes, MIPS32 rel2 LSB ELF) with symlinks etc_ro/lighttpd/www/web/HNAP1/prog.cgi and prog.fcgi -> /bin/prog.cgi. Web stack: lighttpd (etc_ro/lighttpd/) + HNAP1 CGI + FastCGI.",
+    "rootfs is Realtek SDK / OpenWrt Barrier Breaker based (etc/banner, BusyBox 1.22.1, kernel 3.10.14); file count 1643 regular files + 263 symlinks.",
+    "Leftover cross-model string 'DIR-878' in bin/rc data blob @0x83a38 (shared SDK code default, not a version contradiction).",
+    "bin/prog.cgi embeds '/bin/imgdecrypt /tmp/firmware.img' (on-device firmware decryption during upgrade) and fota server api.fota.dlink.com."
+  ]
+}

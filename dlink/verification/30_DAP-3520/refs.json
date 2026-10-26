@@ -1,0 +1,57 @@
+{
+  "target_id": "30_DAP-3520",
+  "status": "ok",
+  "cves": [
+    {
+      "cve_id": "CVE-2024-28436",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2024-28436",
+      "record_source": "cveawg",
+      "refs": [
+        {
+          "url": "https://www.dlink.com/en/security-bulletin/",
+          "tags": []
+        },
+        {
+          "url": "https://supportannouncement.us.dlink.com/announcement/publication.aspx?name=SAP10380",
+          "tags": []
+        },
+        {
+          "url": "https://supportannouncement.us.dlink.com/announcement/publication.aspx?name=SAP10382",
+          "tags": []
+        },
+        {
+          "url": "https://djallalakira.medium.com/cve-2024-28436-cross-site-scripting-vulnerability-in-d-link-dap-products-3596976cc99f",
+          "tags": []
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2016-1559",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2016-1559",
+      "record_source": "cveawg",
+      "refs": [
+        {
+          "url": "http://www.dlink.com/mk/mk/support/support-news/2016/march/16/firmadyne-cve_2016_1558-cve_2016_1559",
+          "tags": [
+            "x_refsource_CONFIRM"
+          ]
+        },
+        {
+          "url": "http://packetstormsecurity.com/files/135956/D-Link-Netgear-FIRMADYNE-Command-Injection-Buffer-Overflow.html",
+          "tags": [
+            "x_refsource_MISC"
+          ]
+        },
+        {
+          "url": "http://seclists.org/fulldisclosure/2016/Feb/112",
+          "tags": [
+            "mailing-list",
+            "x_refsource_FULLDISC"
+          ]
+        }
+      ]
+    }
+  ]
+}

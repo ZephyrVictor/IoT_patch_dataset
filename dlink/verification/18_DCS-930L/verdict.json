@@ -1,0 +1,52 @@
+{
+  "target_id": "18_DCS-930L",
+  "model": "DCS-930L Rev. A",
+  "firmware_version": "1-11b1_all_eu_20140519 (v1.11b1)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/18_DCS-930L/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2019-10999",
+      "verdict": "likely",
+      "version_gate": "pass",
+      "vuln_type": "stack-based buffer overflow",
+      "target_binary": "bin/alphapd",
+      "endpoint": "/setform/setSystemWireless (wireless.htm form) -> render of /wireless.htm",
+      "parameter": "WEPEncryption",
+      "handler_address": "0x42e7a4 (RadioOfWEPEncryWay render callback, websParaDefine'd in formDefineWireless; apply-side form handler 0x424a58)",
+      "sink": {"func": "strcpy", "call_site": "0x42e950"},
+      "evidence": [
+        "version gate: no literal firmware string in rootfs (version rendered via %%FirmwareVersion();%% from nvram); anchors = bootloader stamp 'Signature: DCS-930 L Release 1.11 (2011-05-31)' @0x1A700 + zip entry dcs930l_v111_b1.bin; 1.11b1 <= 2.16.01 (advisory 'DCS-930L 2.16.01 and below') -> in range",
+        "strings -a bin/alphapd: 'WEPEncryption' @vaddr 0x44a720; etc_ro/web/wireless.htm:374 <input type=hidden name=WEPEncryption value=%%WEPEncryption(2);%%>, :369 <FORM ACTION=/setform/setSystemWireless METHOD=POST>; wireless.htm references RadioOfWEPEncryWay 3x (grep -c)",
+        "SINK PRESENT/UNPATCHED: callback 0x42e7a4 (registered via websParaDefine('RadioOfWEPEncryWay',0x42e7a4) in formDefineWireless): 16B stack buffer sp+24..sp+39 zeroed by 4x sw @0x42e7f8-0x42e804; s1=nvram_bufget(0,'WEPEncryption') (jalr @0x42e7f0); if value=='3' -> sh 50,24(sp) @0x42e8dc; ELSE -> strcpy(sp+24,s1) @0x42e950-0x42e95c (a1=s1 @0x42e954, a0=sp+24 in delay slot @0x42e95c) - unbounded copy overwriting s0-s5+ra, no length check (same pattern as confirmed DCS-5020L)",
+        "form write path: WriteWirelessVar@0x41ec7c: websGetVar(wp,'WEPEncryption','') @0x41ed5c -> 44(sp) @0x41ed78 -> nvram_bufset(0,'WEPEncryption',...) @0x41ef48 (only nvram_bufset of WEPEncryption in alphapd); sole caller 0x424bb0 in apply handler 0x424a58 (form 'setSystemWireless', websSetFormDefine @0x426c24)",
+        "DIRECT FORM PATH IS GATED IN THIS BUILD: apply handler: s3=CheckWirelessVar(wp) (captured via delay slot @0x424aec); bnez s3,0x424b40 @0x424b28 -> websetReplayPage error, WriteWirelessVar skipped; CheckWirelessVar@0x41ea48 = OR-chain of websGetVarCheck; websGetVarCheck@0x41cd6c -> CheckVarRange@0x41b60c strcmp-dispatch 'WEPEncryption' @0x41c408-0x41c418 -> 0x41cacc checkenumrange(wp,value,wepencry_select@0x48e8a8={'0','2','3','4',''}) = strict exact-match; on failure websGetVarCheck also resets the request var to the old nvram value (websSetVar) - long WEPEncryption can never reach nvram via POST",
+        "ALTERNATE COMPLETE PATH (authenticated admin): uploadconfig@0x427d34 (form 'setConfigUpload' via /cgi-bin/upload_settings.cgi rewrite, auth flag 3): Blowfish_DeCode decrypt of uploaded file -> system('ralink_init clear 2860') @0x428318-0x428328 -> snprintf(512,'ralink_init renew 2860 %s',tmpfile) + system(buf) @0x428330-0x428360",
+        "ralink_init is a generic nvram loader (strings: 'renew - replace nvram values for <platform> with <file>'; imports nvram_bufset/nvram_commit/renew_nvram/gen_config); alphapd also embeds 'ralink_init renew 2860 /etc_ro/Wireless/RT2860AP/RT2860_default_vlan' (factory default profile, which itself contains WEPEncryption) and 'ralink_init show 2860 >> %s' (settings download) - a restored settings file can carry arbitrary WEPEncryption into nvram without alphapd's enum validation",
+        "sink trigger on render: GET /wireless.htm -> websParaRequest renders %%RadioOfWEPEncryWay%% -> callback 0x42e7a4 reads nvram (not request vars) -> strcpy(16B buf) -> ra overwrite -> code execution as alphapd (root)",
+        "companion writers checked (agent.md 4.e): ralink_init (generic loader, no WEPEncryption validation), nvram_daemon (references WEPEncryption with nvram_bufset/nvram_commit - defaults init), lanconfig, cgi templates wireless.cgi/iwireless.cgi (render-only); none validates like alphapd's form path"
+      ],
+      "reason": "Sink (strcpy of nvram WEPEncryption into 16B stack buffer in RadioOfWEPEncryWay callback) exists verbatim and is unpatched, but the advisory's direct path (long WEPEncryption in the wireless.htm form POST) is blocked server-side in this 1.11b1 build by checkenumrange {'0','2','3','4'} gating the apply handler; the overflow remains reachable via the authenticated config-restore path (uploadconfig -> ralink_init renew loads arbitrary key=value incl. WEPEncryption into nvram unvalidated) followed by rendering wireless.htm."
+    },
+    {
+      "cve_id": "CVE-2016-11021",
+      "verdict": "absent",
+      "version_gate": "pass",
+      "vuln_type": "OS command injection",
+      "target_binary": "bin/alphapd",
+      "endpoint": "/setform/setSystemCommand",
+      "parameter": "SystemCommand",
+      "handler_address": "0x423234",
+      "sink": {"func": "system", "call_site": "0x4232f8 (dead code, unreachable)"},
+      "evidence": [
+        "version gate: 1.11b1 < 2.12 (advisory 'DCS-930L devices before 2.12') -> in range; anchors as in CVE-2019-10999 (bootloader stamp 'Release 1.11', zip entry dcs930l_v111_b1.bin)",
+        "handler + endpoint + sink code all present: websSetFormDefine('setSystemCommand',0x423234) @0x426aa4 in formDefineManagement@0x426a00; strings '/setform/setSystemCommand'@0x449fd8, 'setSystemCommand'@0x44b50c, 'ConfigSystemCommand'@0x44b024, 'SystemCommand'@0x449fe4; auth table .data@0x48ee30+ has {3,'/setform/setSystemCommand'} (admin)",
+        "handler 0x423234 decoded: if websTestVar(wp,'ConfigSystemCommand') @0x423254-0x423260 AND (wp->flags & 1) [lw v0,200(s1)@0x423274; andi v0,v0,0x1 @0x423280; bnez v0,0x4232c8 @0x423290] -> cmd=websGetVar(wp,'SystemCommand','') @0x4232c8 (a1='SystemCommand'@0x423288, a2=''@0x44a218) -> trace(1,'DoCommaon=%s\\n',cmd) @0x4232dc -> system(cmd) @0x4232f8-0x423304; otherwise falls through to websetReplayPage @0x423298 - sink pattern matches the CVE verbatim",
+        "GATE IS PROVABLY ALWAYS FALSE: wp->flags (websRec offset 200, 292-byte struct) starts zeroed - AllocEntry@0x413b3c: mmalloc(292)@0x413b8c then memset(entry,0,292)@0x413ba8-0x413bc8; websConnAlloc@0x407fcc inits fields 184/196/208/216/220/260 and zeroes many others but never writes offset 200",
+        "exhaustive writer enumeration (grep 'sw/sb/sh ...,200(' over full objdump, no sb/sh, no 'ins' instructions anywhere): all 19 wp->flags writers OR only bits 0x2 (0x4098ac), 0x4 (0x408260, 0x4187dc), 0x8 (0x409dcc), 0x10 (0x409df8), 0x20 (0x409eb8), 0x40 (0x4187dc), 0x80 (0x409b88), 0x100 (0x408fc0, 0x40b030, 0x40f2c4), 0x400 (0x409654, 0x409718, 0x409c08), 0x800 (0x40a560), 0x1000 (0x409fe0), 0x2000 (0x40a63c), 0x4000 (0x40a6c8), 0x8000 (0x40a6f0), 0x10000 (0x40a8f8) - bit 0x1 is never set by any code path in the binary",
+        "therefore the bnez v0,0x4232c8 branch is never taken and system(websGetVar(wp,'SystemCommand','')) is unreachable dead code; requests to /setform/setSystemCommand always take the websetReplayPage reply path @0x423298",
+        "companion-process check (agent.md 4.e): grep -rla 'SystemCommand' over rootfs bin/ sbin/ etc_ro/ -> only bin/alphapd; sole string xref in disasm is 0x423288 (single 'addiu a1,a1,-24604') inside the dead-gated handler; the handler forwards the parameter nowhere (no pipe/IPC/shared-file consumer); no other daemon implements the endpoint"
+      ],
+      "reason": "The setSystemCommand handler and the system(websGetVar(wp,\"SystemCommand\",\"\")) sink code exist verbatim, but the execute branch is gated on wp->flags bit 0 which is never set anywhere in this build (zeroed allocation + exhaustive enumeration of all 19 flag writers, none sets 0x1), so the injection sink is unreachable dead code; companion binaries checked (ralink_init, nvram_daemon, lanconfig, all of rootfs) contain no SystemCommand consumer."
+    }
+  ]
+}

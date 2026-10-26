@@ -1,0 +1,36 @@
+{
+  "target_id": "09_DIR-655",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DIR-655_fw_revc_302b03-02_ALL_de_20140609/DIR655C1_FW302B03_02.bin",
+      "sha256": "16e85529d61ea1efbafa3b571601e1bc852e7585da2fac209487447b5ed3f78d",
+      "size_bytes": 15663104
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/09_DIR-655/rootfs",
+  "rootfs_file_count": 816,
+  "arch": "mips",
+  "arch_detail": "MIPS32 rel2 big-endian (MSB)",
+  "version_strings": [
+    {"where": "etc/sysinfo", "string": "sys_fw_version=3.02"},
+    {"where": "etc/sysinfo", "string": "sys_fw_version_build=3.02b03Beta02"},
+    {"where": "etc/sysinfo", "string": "sys_fw_date=09, Jun, 2014"},
+    {"where": "etc/sysinfo", "string": "sys_fw_hwid=00AP136AR9558-RT-130411-00"},
+    {"where": "etc/nvram.default", "string": "model_number=DIR-655"},
+    {"where": "etc/nvram.default", "string": "fw_query_str=DIR-655_Cx_Default"},
+    {"where": "www/version.txt", "string": "Firmware Internal Version: V<!--# echo sys_fw_version_build --> (runtime template; resolves to 3.02B03BETA02)"}
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "镜像布局: uImage(lzma kernel, MIPS)@0x0 + squashfs(lzma)@0x160000(8759030B) + 零填充 + 26B 构建标签 '00AP136aR9558-RT-130411-00'@0xeeffe6",
+    "squashfs 为 Atheros SDK 魔改变体: superblock u64 字段整体前移 2 字段(root_inode@0x20/bytes_used@0x28), 元数据与数据块均用 5 字节头(props=0x6d 即 lc=1,lp=2,pb=2 + dict) + raw LZMA1 流(无 size 字段), 解压需 lzma.FORMAT_RAW 并跳过 5 字节头",
+    "sasquatch 对无 fragment 存储(fragment=0xFFFFFFFF)的两个文件 lib/libm-0.9.30.so 与 sbin/ssdk_sh 解压失败且中止; 已解析 inode 表用 python lzma 手动恢复, rootfs 816 文件+249 符号链接 100% 完整, 恢复文件为合法 MIPS ELF",
+    "www/ 下 21 个 0 字节 .cgi(ping_response.cgi/ping6_response.cgi/apply_sec.cgi 等)为固件原生占位符, CVE-2019-13562 涉及路径全部存在",
+    "www/cgi/ssi(784KB MIPS ELF)为 CGI 主处理程序, /bin/ 下大量命令符号链接指向 /www/cgi/ssi",
+    "sys_region=NA 但发行包为德语版(ALL_de, 附 DIR655C1_100DEb03.lng 语言包与德文 PDF), 固件本体与区域无关",
+    "内部版本 3.02b03Beta02 与清单 302b03-02_ALL_de_20140609 一致(-02=Beta02), 低于 CVE-2019-13562/13563 修复版 3.02B05 BETA03",
+    "binwalk 原始输出在 scratch/09_DIR-655/extract (符号链接), 其 squashfs-root 因 sasquatch 中止不完整, 以 scratch/09_DIR-655/rootfs 为准"
+  ]
+}

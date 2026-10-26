@@ -1,0 +1,31 @@
+{
+  "target_id": "25_DAP-1620",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DAP-1620_fw_reva_103b08-03_ALL_multi_20160309/DAP1620_RevA_Firmware103B08-03.bin",
+      "sha256": "bef863be38112fcb323dac58bc18e48c317efdf1ae7479e3ee8b7978ad8be662",
+      "size_bytes": 4784128
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/25_DAP-1620/rootfs",
+  "rootfs_file_count": 433,
+  "arch": "mipsel",
+  "version_strings": [
+    {"where": "etc/sysinfo", "string": "sys_fw_version=1.03"},
+    {"where": "etc/sysinfo", "string": "sys_fw_build=08beta03"},
+    {"where": "etc/sysinfo", "string": "sys_fw_version_build=1.03b08beta03"},
+    {"where": "etc/sysinfo", "string": "sys_fw_date=09, Mar, 2016"},
+    {"where": "bin/ssi (ELF strings)", "string": "sys_fw_version (key reference; value loaded from etc/sysinfo)"},
+    {"where": "sbin/rc (ELF strings)", "string": "sys_fw_version, sys_fw_version_build (key references)"}
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "Image layout: uImage header @0x0 (MIPS, LZMA kernel 'Linux Kernel Image', 2016-03-09), squashfs v4.0 LE xz @0xF0000 (668 inodes, 3091900 bytes)",
+    "Platform: Ralink MT7620 (kernel 2.6.36 SDK4300, rlt_wifi_ap), uClibc 0.9.28, arch mipsel",
+    "Version 1.03b08beta03 matches manifest 103b08-03_ALL_multi_20160309 (b08beta03 <-> b08-03; date 2016-03-09); no contradicting version strings found",
+    "Web stack relevant to CVE-2025-2620/2621: sbin/lighttpd + lib/mod_cgi.so + lib/mod_graph_auth.so (graph_auth.conf, www/graph_code.htm) + bin/ssi (SSI CGI); www/cgi/ dir exists but empty, CGI likely routed to bin/ssi via lighttpd conf",
+    "binwalk -Me succeeded directly; two identical squashfs extractions consolidated into one rootfs"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "target_id": "04_GO-RT-AC750",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "GO-RT-AC750_fw_reva_101b03_ALL_de_20140922/GORTAC750_A1_FW_v101b03.bin",
+      "sha256": "7b63b88d86c522aed864625b966333409983f313b9d95a34d454ff52730ed230",
+      "size_bytes": 3686544
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/04_GO-RT-AC750/rootfs",
+  "rootfs_file_count": 1385,
+  "arch": "mips",
+  "version_strings": [
+    {"where": "etc/config/buildver", "string": "1.01"},
+    {"where": "etc/config/buildrev", "string": "b03"},
+    {"where": "etc/config/buildno", "string": "e9md"},
+    {"where": "etc/config/builddate", "string": "Mon 22 Sep 2014"},
+    {"where": "etc/config/builddaytime", "string": "2014 09 22 13 56"},
+    {"where": "etc/config/hwver", "string": "A1"},
+    {"where": "etc/config/image_sign", "string": "wrgac18_dlob.hans_ac750"},
+    {"where": "etc/config/fw_sign", "string": "wrgac18_dlob.hans_ac750"},
+    {"where": "etc/defnodes/S40device.xml", "string": "<modelname>GO-RT-AC750</modelname> (root tag wrgac18_dlob.hans_ac750)"},
+    {"where": "etc/defnodes/S20device.xml", "string": "<firmwareversion get=\"cat /etc/config/buildver\"/>"}
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "ZIP 内其余条目为说明文档与语言包，已排除：Anleitung*.pdf/.txt、WICHTIGE*.pdf、changes.txt、GORTAC750A1_100DE.lng（.lng 语言包）",
+    "固件布局：0x0 DLOB/WRG 头 signature=wrgac18_dlob.hans_ac750, dev=/dev/mtdblock/5, type=firmware；0x70 LZMA 内核（解压后 4053576 字节，Linux 2.6.30）；0x130070 PackImg 分隔标签；0x130090 squashfs 4.0 LE lzma（2439012 字节，1709 inodes，创建时间 2014-09-22 05:56:47）",
+    "版本 101b03 未以完整字面形式出现，但组合指纹完全吻合：buildver=1.01 + buildrev=b03（=> v101b03）+ builddaytime=2014 09 22（=> 20140922）+ hwver=A1（=> Rev. A）；ALL_de 对应多语言德版发布",
+    "binwalk -Me 成功，但其把绝对符号链接改为 /dev/null；已用 unsquashfs 额外解出保留符号链接的 rootfs（exit=2 仅因非 root 无法创建 /dev 字符设备，无害）",
+    "重要符号链接链：htdocs/web/*.cgi -> /htdocs/cgibin（含 CVE-2024-27684 所列 dlapn.cgi/dldongle.cgi/dlcfg.cgi/fwup.cgi/seama.cgi）；htdocs/cgibin 为 160964 字节 MIPS BE ELF（CVE-2024-27683 hnap_main 的分析目标）",
+    "架构为 MIPS 大端（MSB, MIPS-I, 静态 busybox 496KB / hostapd / pppd；uClibc 0.9.30.3，动态 ELF 解释器 /lib/ld-uClibc.so.0）",
+    "rootfs 另含 159 个符号链接、共 1635 个目录条目；www/ 下仅 syslog.rg/tsyslog.rg"
+  ]
+}

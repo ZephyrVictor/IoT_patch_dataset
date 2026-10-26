@@ -1,0 +1,46 @@
+{
+  "target_id": "09_DIR-655",
+  "status": "ok",
+  "cves": [
+    {
+      "cve_id": "CVE-2019-13562",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2019-13562",
+      "record_source": "cveawg",
+      "refs": [
+        {
+          "url": "https://www.nccgroup.trust/us/about-us/newsroom-and-events/blog/2019/july/the-d-link-dir-655c-from-nothing-to-rce/",
+          "tags": ["x_refsource_MISC"]
+        },
+        {
+          "url": "ftp://ftp2.dlink.com/SECURITY_ADVISEMENTS/DIR-655/REVC/DIR-655_REVC_RELEASE_NOTES_v3.02B05_BETA03.pdf",
+          "tags": ["x_refsource_MISC"]
+        },
+        {
+          "url": "https://www.nccgroup.trust/contentassets/7188fe7f130846ffa31827fc1661d120/crosssitescripting.txt",
+          "tags": ["x_refsource_MISC"]
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2019-13563",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2019-13563",
+      "record_source": "cveawg",
+      "refs": [
+        {
+          "url": "https://www.nccgroup.trust/us/about-us/newsroom-and-events/blog/2019/july/the-d-link-dir-655c-from-nothing-to-rce/",
+          "tags": ["x_refsource_MISC"]
+        },
+        {
+          "url": "ftp://ftp2.dlink.com/SECURITY_ADVISEMENTS/DIR-655/REVC/DIR-655_REVC_RELEASE_NOTES_v3.02B05_BETA03.pdf",
+          "tags": ["x_refsource_MISC"]
+        },
+        {
+          "url": "https://www.nccgroup.trust/contentassets/7188fe7f130846ffa31827fc1661d120/csrf.txt",
+          "tags": ["x_refsource_MISC"]
+        }
+      ]
+    }
+  ]
+}

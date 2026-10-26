@@ -1,0 +1,26 @@
+{
+  "target_id": "12_DIR-1960",
+  "status": "ok",
+  "cves": [
+    {
+      "cve_id": "CVE-2022-31414",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2022-31414",
+      "record_source": "cveawg",
+      "refs": [
+        {
+          "url": "https://www.dlink.com/en/security-bulletin/",
+          "tags": ["x_refsource_MISC"]
+        },
+        {
+          "url": "https://tsd.dlink.com.tw/ddgo",
+          "tags": ["x_refsource_MISC"]
+        },
+        {
+          "url": "https://github.com/Davidteeri/Bug-Report/blob/main/dlink-dir1960-%200x42acdc.md",
+          "tags": ["x_refsource_MISC"]
+        }
+      ]
+    }
+  ]
+}

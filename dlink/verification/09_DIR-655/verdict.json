@@ -1,0 +1,61 @@
+{
+  "target_id": "09_DIR-655",
+  "model": "DIR-655 C1",
+  "firmware_version": "3.02b03Beta02 (sys_fw_version_build=3.02b03Beta02, sys_fw_date=09, Jun, 2014, sys_hw_version=C1; image DIR655C1_FW302B03_02.bin)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/09_DIR-655/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2019-13562",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "reflected XSS",
+      "target_binary": "/www/cgi/ssi",
+      "endpoint": "/ping_response.cgi, /ping6_response.cgi, /apply_sec.cgi",
+      "parameter": "ping_ipaddr, ping6_ipaddr, html_response_return_page",
+      "handler_address": "0x417958 (action=ping_test), 0x415e64 (action=ping6_test), 0x405668 (action=do_graph_auth) / 0x40dcb8 (action=response_page)",
+      "sink": {
+        "func": "echo SSI directive (0x406900): getVar(name,buf,4096) then fputs(buf, stdout) with no HTML escaping",
+        "call_site": "0x406968"
+      },
+      "evidence": [
+        "Version gate: extract.json etc/sysinfo 'sys_fw_version_build=3.02b03Beta02', 'sys_fw_date=09, Jun, 2014' < advisory fix 3.02B05 BETA03 (DIR-655 C before 3.02B05 BETA03)",
+        "Routing: grep cgi.assign rootfs/etc/conf.d/cgi.conf -> '\".cgi\" => \"/www/cgi/ssi\", \".asp\" => \"/www/cgi/ssi\"' — all three endpoints run /www/cgi/ssi (MIPS32 rel2 BE, stripped, 509 dynsyms)",
+        "POST ingestion: objdump ssi.asm main@0x4099b0: REQUEST_METHOD != \"GET\"(@0x48B0A4) -> jal post_mapper@0x409ff0 -> do_ssc@0x40908c; do_ssc@0x408ac0 calls put_querystring_env@0x408c7c (slot 0x4C84EC -> 0x4085DC) which read()s stdin tokens and putenv()s them (call_site 0x4088e4, PLT slot 0x4C8820)",
+        "Filter is bypassable: put_querystring_env@0x4085DC drops a POST token ONLY if strstr(token,\"<\")@0x408820 (string 0x48AB70 \"<\") AND strstr(token,\">\")@0x408834 (string 0x4ADDD4 \">\") both hit (exemption strstr(\"count_down\")&&strstr(\"br\")@0x408928/0x408940, strings 0x48ABA0/0x48ABAC); console warn 'The input data include \"<\" a...'@0x48ABB0 — payloads without angle brackets are putenv'd unmodified",
+        "Action dispatch: do_ssc getVar(\"action\"@0x48F38C)@0x408c98; strncmp(SCRIPT_NAME,\"/apply_sec.cgi\"@0x48ADCC)@0x408cc4 selects OBJS tables in .data: table1@0x4c49b8 (106 entries, stride 20) / table2@0x4c5e74 (11 entries); entries ping_test->0x417958, ping6_test->0x415e64, do_graph_auth->0x405668, response_page->0x40dcb8; handler called via jalr@0x408f70/0x408f80",
+        "Unauthenticated reachability of dispatch: do_ssc reads current_user/user_username via getter slot 0x4C8688 (@0x408b10/0x408b2c); if either is NULL the admin gate is skipped (beqz@0x408b40/0x408b48 -> 0x408ba4 -> put_querystring_env); the gate itself is strcmp(current_user, base64_encode(user_username))@0x408b8c (strlen@0x408b58, base64_encode=0x47CE60 via slot 0x4C85D8) and only blocks the restricted 'user' account (mismatch falls through to dispatch)",
+        "ping handler 0x417958: getenv(\"ping_ipaddr\"@0x48E2C8)@0x4179a4; strtok ',.;'/inet_aton; sprintf(\"ping -c 1 %s 2>&1\"@0x48E31C); popen@0x417a70; setenv(\"ping_result\"@0x48E310,...)@0x417bec; returns getenv(\"html_response_page\") via 0x40dcb8 (= \"tools_vct.asp\" from the form's hidden field) which post_mapper prefixes with \"/www/\" for rendering",
+        "Renderer: 0x409428 fopen64(/www/<page>), SSI state machine emits \"<!--#\"@0x48B074 handling -> ssi_directive@0x40914c walks static table 0x4BDEB0 (stride 20, name[16]+func@+16): echo->0x406900; directive args parsed with delims \" \\t\\n\\r\\\"\"@0x48AE58",
+        "SINK echo@0x406900: getVar(argv[1], sp+24, 4096)@0x40691c-0x406934 (getVar 0x47CCB0 = getenv + strncpy); fputs(buf, *(GOT stdout 0x4C869C))@0x406954-0x406968 — value written to the CGI response stream RAW, no html-escaping anywhere in the directive",
+        "Reflection templates (grep rootfs/www): tools_vct.asp:101 '<input ... name=\"ping_ipaddr\" ... value=\"<!--# echo ping_ipaddr -->\">'; tools_vct.asp:116 same for ping6_ipaddr; error.asp:25 'window.location.href = \"<!--# echo html_response_return_page -->\";' (JS string context) and error.asp:49 hidden-value echo — attribute-injection payload `x\" onfocus=alert(1) autofocus=\"` (no < >) passes the put_querystring_env filter and breaks out of value=\"...\"",
+        "apply_sec.cgi chain is pre-auth: etc/conf.d/graph_auth.conf graph_auth.except_paths contains '\"/apply_sec.cgi\" => \"\"' (mod_graph_auth does not require a session for it); POST /apply_sec.cgi with action=response_page (table2 -> 0x40dcb8) returns getenv(\"html_response_page\") directly, or action=do_graph_auth@0x405668 which captures getenv(\"html_response_page\") at entry (get_response_page@0x4056a0, saved 2836(sp)@0x4056c8) and returns it on the failure epilogue (lw v0,2836(sp)@0x405e88) — attacker sets html_response_page=error.asp + html_response_return_page=payload (no angle brackets needed for the error.asp:25 JS-string breakout)"
+      ],
+      "reason": "All three advisory-named parameters are putenv'd from the POST body and later re-emitted into the HTML/JS response by the echo SSI directive at 0x406900 via fputs(buf,stdout)@0x406968 with no escaping; the only filter (put_querystring_env@0x4085DC) drops a token solely when it contains both '<' and '>', which attribute-injection and JS-string-breakout payloads avoid; apply_sec.cgi is additionally reachable pre-auth via graph_auth.except_paths."
+    },
+    {
+      "cve_id": "CVE-2019-13563",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "CSRF (management console)",
+      "target_binary": "/www/cgi/ssi (+ /lib/mod_graph_auth.so)",
+      "endpoint": "entire management console — every state-changing POST action, e.g. POST /reboot.cgi (action=reboot)",
+      "parameter": "action=reboot (+ html_response_page / reboot_type hidden fields; no anti-CSRF token of any kind)",
+      "handler_address": "0x411530 (reboot action, OBJS table1@0x4c49b8)",
+      "sink": {
+        "func": "reboot handler 0x411530: system(\"snmptrap ...\") then jal __do_reboot@0x4112c8",
+        "call_site": "0x411590"
+      },
+      "evidence": [
+        "Version gate: extract.json 'sys_fw_version_build=3.02b03Beta02' (2014-06-09) < advisory fix 3.02B05 BETA03 (DIR-655 C before 3.02B05 BETA03)",
+        "Auth is cookie-session based: etc/conf.d/graph_auth.conf -> 'server.modules += ( \"mod_graph_auth\" )', 'graph_auth.session_dir = \"/tmp/graph\"', 'graph_auth.default_session_timeout = 60'; strings lib/mod_graph_auth.so contains 'Cookie', 'graph_auth.session_dir', '/tmp/web_authorization_record' — the session cookie is attached automatically by browsers on cross-site POSTs (no SameSite attribute exists in this 2014 lighttpd/mod_graph_auth)",
+        "No Referer/Origin validation anywhere: strings -d lib/mod_graph_auth.so | grep -iE 'referer|cookie|session|token|origin' -> only 'Cookie' + session config (header checks present: Host/authority via check_lan_match, User-Agent for CaptiveNetworkSupport — neither blocks cross-site form POSTs); strings -d www/cgi/ssi | grep -iE 'referer|http_referer|csrf|token|origin' -> no matches",
+        "No anti-CSRF token in any form: grep -rhiE 'type=.hidden' rootfs/www/*.asp | name histogram -> 172 html_response_page, 168 html_response_return_page, 116 action, 112 reboot_type ... (no token/nonce field); grep -rilE 'csrf|antiforgery|__requestverificationtoken' rootfs/www/ -> no hits",
+        "State-changing target form: rootfs/www/tools_system.asp:194-204 form6 method=post action=reboot.cgi with only hidden inputs (html_response_page=count_down.asp, html_response_return_page=tools_system.asp, html_response_message, result_timer=50, action=reboot) — an auto-submitting cross-site form reproduces it verbatim",
+        "Dispatch reaches the action with no per-request validation: do_ssc@0x408ac0 -> getVar(\"action\")@0x408c98 -> OBJS table1@0x4c49b8 entry 'reboot' -> handler 0x411530 (jalr@0x408f70); the only auth logic in do_ssc is the current_user vs base64(user_username) restricted-user check@0x408b8c — no token/Referer/Origin check exists in the POST path",
+        "reboot handler 0x411530: system(\"snmptrap -v 2c -c IPv6Ready 3ffe:501:ffff:100:20...\"@0x48D144)@0x411554 (PLT -30092), getVar(\"reboot_type\"@0x48B5C0)@0x411570, jal __do_reboot@0x4112c8@0x411590 — device reboots purely from the posted hidden fields",
+        "cgi.conf cgi.assign maps '.cgi'/'.asp' -> /www/cgi/ssi, so /reboot.cgi is served by the same tokenless ssi dispatcher"
+      ],
+      "reason": "Management-console authentication is a session cookie (mod_graph_auth, /tmp/graph) that browsers attach to cross-site requests, every state-changing action is a plain POST whose parameters are fully attacker-choosable hidden fields (e.g. tools_system.asp form6 -> /reboot.cgi action=reboot -> 0x411530 -> __do_reboot@0x4112c8), and neither mod_graph_auth.so nor /www/cgi/ssi contains any anti-CSRF token, Referer, or Origin validation."
+    }
+  ]
+}

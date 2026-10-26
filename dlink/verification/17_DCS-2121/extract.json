@@ -1,0 +1,52 @@
+{
+  "target_id": "17_DCS-2121",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DCS-2121_fw_1-06_5731.bin",
+      "sha256": "3ad48d29af5f79b44aa4f9b3dce78b2d1785470e67fc7b5ea2e5350d46d567d1",
+      "size_bytes": 7372200
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/17_DCS-2121/rootfs",
+  "rootfs_file_count": 1254,
+  "arch": "arm",
+  "version_strings": [
+    {
+      "where": "etc/db/dbinput.db [System]",
+      "string": "Version=1.0.0-5731 (build 5731 matches manifest; Vendor=Alphanetworks, OEM=D-Link, OEMVersion=1.06)"
+    },
+    {
+      "where": "etc/db/dbinput.db [System]",
+      "string": "OEMVersion=1.06 (matches manifest 1-06)"
+    },
+    {
+      "where": "etc/db/dbinput.db [System]",
+      "string": "Model=DCS-2102, ModelW=DCS-2121, ProdNameW=Wireless Megapixel Internet Camera (DCS-2102 wired / DCS-2121 wireless share one firmware)"
+    },
+    {
+      "where": "etc/db/dbinput.db [Meta]",
+      "string": "Version=1.0.0 (Alphanetworks platform version)"
+    },
+    {
+      "where": "pkg/DCS-2121_fw_1-06_5731.bin header (update script, not rootfs)",
+      "string": "VERSION=\"1.0.0-5731\", MODEL=\"DCS-2102\", HWBOARD=\"dcs2121\", VENDOR=\"Alphanetworks\", MD5SUM=92a75058e8522c681924beeef6a01eee"
+    },
+    {
+      "where": "var/www/xmlFunctions.sh:67",
+      "string": "tag version \"$OEMVersion_ss\" (web UI reads version at runtime from tinydb)"
+    }
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "ZIP contains firmware DCS-2121_fw_1-06_5731.bin (self-extracting POSIX sh script, Alphanetworks format) + Changes.txt (excluded as doc).",
+    "Update script: payload = tail -n +152 (md5 92a75058e8522c681924beeef6a01eee verified). Payload layout: ARM zImage kernel @0x5260 (1MB region, gzip@0x7E40), CramFS rootfs @0x105260 size 0x5A8000 (1255 entries), Proboot autoboot.bat trailer @~0x700000.",
+    "Rootfs filesystem is CramFS (little endian, zlib) — NOT squashfs; cramfsck not installed; extracted with 7z 23.01 (native CramFS support). 7z refused 126 'dangerous' symlinks (absolute /tmp/* targets and ../ relative targets e.g. usr/bin/*->../../bin/busybox); recreated all 126 from 7z error output -> 606 files + 585 symlinks + 63 dirs = 1254 entries (cramfs header counts 1255 incl. root).",
+    "OEM is Alphanetworks (not Vivotek like DCS-5615): ARM9 32-bit LSB, uClibc, linux-2.4.19 strings in kernel, busybox/lighttpd/smbmount/pppd largest ELFs.",
+    "Boot flash layout (autoboot.bat): kernel@0x60000 (1MB, load 0x220000), cramfs rootfs@0x160000 (0x2a0000), log@0x50000, tinydb@0x20000 (/dev/norchar1), pibinfo@0x0.",
+    "Config DB = Alpha tinydb: etc/db/dbinput.db (factory defaults incl. [HTTPAccount] _AdminUser=admin, [RTPServer] Port/Authenticate/Url1=play1.sdp ... Url4=3gpp) + etc/db/umconfig.txt (users table: admin/group 9_admin, guest/0_guest with hash-like passwords) — relevant for CVE-2013-1602/1603 (RTSP auth bypass / hardcoded creds).",
+    "Web stack: lighttpd (mod_cgi/mod_auth) + /var/www (xsl-based UI, var/www/cgi) + etc/rc.d/init.d/lighttpd.sh generates /tmp/lighttpd-inc.conf at runtime; etc/passwd,etc/shadow -> /tmp symlinks (runtime state).",
+    "etc/rtpd.conf + etc/rtspd.conf present (RTSP daemons, config mostly runtime)."
+  ]
+}

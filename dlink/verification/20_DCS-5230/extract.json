@@ -1,0 +1,43 @@
+{
+  "target_id": "20_DCS-5230",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "dcs-5230_a2_fw_1.02_4108(35497405)(0527135708).bin",
+      "sha256": "69fc40c1de206422a6308f235aea5ebfac2151b43cb852290df991ef9ff7f83d",
+      "size_bytes": 7698831
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/20_DCS-5230/rootfs",
+  "rootfs_file_count": 681,
+  "arch": "arm",
+  "version_strings": [
+    {
+      "where": "etc/db/dbinput.db [System] Version (NUL-padded tinydb record, string offset 187)",
+      "string": "1.0.0-4108"
+    },
+    {
+      "where": "etc/db/dbinput.db [System] OEMVersion (string offset 579)",
+      "string": "1.02"
+    },
+    {
+      "where": "etc/db/dbinput.db [Meta] Version (string offset 39)",
+      "string": "1.0.0"
+    },
+    {
+      "where": "pkg script header (self-extract .bin, VERSION= field)",
+      "string": "VERSION=\"1.0.0-4108\" OEM=D-Link MODEL=DCS-5230 HWBOARD=dcs5230"
+    }
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "Alphanetworks OEM ipcam (same platform family as DCS-2121): ZIP contains a single POSIX sh self-extract script; payload = tail -n +104, MD5 self-check 0d0eb67dc8e1056c6860e8ad4da82c94 verified.",
+    "Payload layout (binwalk): ARM zImage kernel @0x5260 (gzip @0x7E40, kernel 2.4.19), main CramFS rootfs @0x105260 (6082560B, 1173 files), OPT CramFS @0x6D5260 (241664B, 17 files) extracted separately to scratch/20_DCS-5230/optfs.",
+    "binwalk -Me cramfs-root output was empty; CramFS extracted via 7-Zip 23.01 (native CramFS), then 27 'Dangerous link' symlinks (etc/passwd->/tmp/passwd, usr/bin/*->../../bin/busybox etc.) rebuilt from 7z error log via os.symlink.",
+    "Flash map from payload tail autoboot: rootfs cramfs@0x160000 size 0x2a0000, kernel load 0x220000, log@0x10000, tinydb@0x20000, pibinfo@0x0, opt@0x780000.",
+    "Version dual-anchor matches manifest: tinydb [System] Version=1.0.0-4108 (build 4108 = ZIP filename token) + OEMVersion=1.02 (= manifest 1-02). No contradicting strings; 4108 hits under var/www are unrelated ActiveX CLSID GUIDs.",
+    "optfs/version = 1.50-201004081701 (OPT platform package build, predates main fw; not a firmware-version contradiction). optfs holds cgi/admin/ecosystem.cgi, presenced, tsa, upnpc-ddns, dldps2121.",
+    "Web/RTSP surfaces for CVE-2013-1602/1603: etc/rtspd.conf + etc/rtpd.conf + sbin/rtspd + sbin/rtpd (rtspd banner 'RTSP daemon 1.0.1'), lighttpd + var/www (eng html + xsl UI, dcsclictrl.cab ActiveX), tinydb etc/db/{dbinput.db,umconfig.txt} user/auth tables. ARM 32-bit LSB, uClibc 0.9.28."
+  ]
+}

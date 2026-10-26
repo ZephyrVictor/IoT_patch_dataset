@@ -1,0 +1,35 @@
+{
+  "target_id": "16_DCS-5615",
+  "model": "DCS-5615",
+  "firmware_version": "101_all_en_20140507 (DCS-5615_FW.v1.01.00.pkg, /etc/firmware-version PD8166-DLNK-0100d6)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/16_DCS-5615/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2026-11497",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "misconfiguration / least privilege violation (CWE-266/CWE-272): Boa webserver configured to run as root",
+      "target_binary": "/usr/sbin/httpd (Boa/0.94.14rc21, ARM EABI4, stripped) + /etc/conf.d/boa/boa.conf",
+      "endpoint": "HTTP 0.0.0.0:80 and :8080 (AlternatePort), all URIs incl. /cgi-bin/*",
+      "parameter": "boa.conf directives 'User root' / 'Group root' (lines 51-52 of factory-default boa.conf)",
+      "handler_address": "0xfe28 (User directive handler, getpwnam@plt -> server_uid)",
+      "sink": {
+        "func": "drop_privs: setgid+setuid (kept at uid/gid 0, regain-root check skipped when server_uid==0)",
+        "call_site": "0xda1c setgid@plt / 0xda2c setuid@plt / 0xda48 setuid(0) check skipped via beq at 0xda40"
+      },
+      "evidence": [
+        "版本门：zip 内 DCS-5615_FW.v1.01.00.pkg + Release Note 'Firmware Version: v1.01' ↔ CVE affected 1.01.00；cat rootfs/etc/firmware-version -> 'PD8166-DLNK-0100d6'（Vivotek 内部号对应对外 v1.01），无矛盾版本串 → gate pass",
+        "出厂 boa.conf 位于 backupfw.img 内嵌恢复 cpio：grep -n -E '^(User|Group)' .../_backupfw.img.extracted/_341D.extracted/cpio-root/etc/conf.d/boa/boa.conf -> '51:User root'、'52:Group root'（sha256 7486f9acd22ec428e1e538948d58f16634c34ea103e0ef43f43732acdd28eb05）；另含 Port 80/AlternatePort 8080/ScriptAlias /cgi-bin/ /usr/share/www/cgi-bin/",
+        "主 rootfs 无实体 boa.conf：ls -la rootfs/etc/conf.d -> 'lrwxrwxrwx ... conf.d -> ../mnt/flash/etc/conf.d'（FLASHFS jffs2 分区）；grep -rE 'User root|Group root' 主 rootfs 无命中，固件包内唯一出厂默认即 backupfw cpio 中该文件",
+        "出厂配置落盘链：setup/install -> 'flashmgr write ${BACKUPFW_FILENAME} 0x300000 0x200000'（backupfw.img 写入 BACKUPFW 分区）；rootfs/etc/init.d/restore -> 'flashmgr writeFS 7; update_etc restore'（恢复模式将出厂默认写入 FLASHFS）；update_etc 仅 'cp ${CONFIGDIR}/boa.conf /mnt/flash/etc/boa/boa.conf'，从不改写 User/Group",
+        "服务启动无降权包装：grep -n start-stop-daemon rootfs/etc/init.d/httpd -> '--start --quiet -b -n httpd --exec /usr/sbin/httpd -- -c /etc/conf.d/boa -d'（无 --chuid，root 启动）；binpath=/usr/sbin/httpd",
+        "二进制身份：file rootfs/usr/sbin/httpd -> 'ELF 32-bit LSB executable, ARM, EABI4, dynamically linked, stripped'（sha256 6bd02627e1bce6e9eb8758bdb2db0aea6c0763ceb7062095813b5773b9653d0e）；strings -> 'Boa/0.94.14rc21'、'/etc/conf.d/boa/boa.conf'@0x2050c、'User %s = '@0x203cc、'No such user: %s'、'drop_privs'@0x1f9e0、'icky Linux kernel bug!'@0x1f764（boa 0.94 特征）",
+        "User 指令解析（arm-linux-gnueabi-objdump -d, scratch/16_DCS-5615/analysis/httpd.asm）：0xfdd0 strtol 尝试数字 UID，非数字则 0xfe28 'bl 9d44 <getpwnam@plt>'，0xfe34 'ldr r3,[r0,#8]'（pw_uid）存入 server_uid 全局 — 'User root' 解析为 uid 0",
+        "drop_privs 反汇编：0xda08 'bl 9b88 <initgroups@plt>'、0xda1c 'bl 9bc4 <setgid@plt>'（server_gid）、0xda2c 'bl 9eac <setuid@plt>'（server_uid）、0xda38-0xda40 'cmp r3,#0; beq d954' — server_uid==0 时跳过 0xda48 的 setuid(0) regain-root 检查（'icky Linux kernel bug!'），boa 以 root 继续 serve",
+        "CGI 以 root 执行：boa.conf 'ScriptAlias /cgi-bin/ /usr/share/www/cgi-bin/'；ls rootfs/usr/share/www/cgi-bin/ -> admin viewer operator dido anonymous cgifunctions + privilege.cgi sysinfo.cgi 等（boa fork/exec 的 CGI 继承 uid 0/gid 0）",
+        "缓解排查（无任何降权/改写机制）：主 rootfs 全树 grep 'User root|Group root' 无脚本改写；update_etc/set_http_attraction/update_httpsport 等仅改端口/别名类字段；init 链无 --chuid/su/setuid 包装；boa 为该配置唯一消费者（rtsps/onvifd 等伴生守护进程与 boa.conf 无关，已确认无第二 sink）"
+      ],
+      "reason": "固件包（v1.01.00）内唯一出厂 /etc/conf.d/boa/boa.conf（backupfw 恢复 cpio，即设备 FLASHFS 配置的默认来源）将 Boa 0.94.14rc21 配置为 User root/Group root；httpd 反汇编证实 User 指令经 getpwnam 解析、drop_privs 执行 setgid(0)/setuid(0) 且 server_uid==0 时跳过 regain-root 防护检查，Web 服务与全部 CGI 以 root 身份运行 — 最小特权违规在该构建中真实存在。"
+    }
+  ]
+}

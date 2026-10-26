@@ -1,0 +1,33 @@
+{
+  "target_id": "12_DIR-1960",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DIR-1960_fw_reva_111b03_ALL_multi_20200516/DIR-1960_RevA_Firmware_111b03.bin",
+      "sha256": "c65aff8486780421a6874a5d64547a7a59b7af4996d7741f2b0f017f9a72f4b1",
+      "size_bytes": 17992302
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/12_DIR-1960/rootfs",
+  "rootfs_file_count": 1627,
+  "arch": "mipsel",
+  "version_strings": [
+    {"where": "decrypted image 96B version block @0x40 (image offset 0x40, after 64B uImage header)", "string": "DIR-1960"},
+    {"where": "decrypted image 96B version block @0x80", "string": "V1.11B03"},
+    {"where": "decrypted image 96B version block @0x90", "string": "A1"},
+    {"where": "bin/rc (strings -a)", "string": "D-Link_DIR-1960"},
+    {"where": "bin/rc (strings -a)", "string": "model_number=DIR-1960"}
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "SHRS-encrypted firmware (magic 'SHRS', fixed IV 67c6697351ff4aec29cdbaabf2fbe346); binwalk on raw .bin yields only one false positive (MySQL ISAM @0x2C3F4E) — expected for this format.",
+    "Decrypt chain: dd skip=1756 | openssl aes-128-cbc -d -nopad -nosalt -K C05FBF1936C99429CE2A0781F08D6AD8 (key reused across D-Link 2020-era models, e.g. DIR-3060/DIR-882); 'bad decrypt' final-block warning is benign (trailing bytes past padded length).",
+    "Decrypted = 64B uImage header + 96B version block + LZMA(props 0x5D) -> vmlinux 23333312 B (kernel 3.10.14, Realtek SDK).",
+    "Rootfs is kernel-embedded initramfs, NOT squashfs: embedded LZMA (usize=-1) at vmlinux@0x858EA8 -> 70163456 B cpio(newc) -> extracted to rootfs/ (1627 files + 263 symlinks).",
+    "Web stack: lighttpd + FastCGI; web roots at rootfs/etc_ro/web and rootfs/etc_ro/lighttpd/www; HNAP handler binary present at rootfs/bin/prog-cgi (MIPS32 rel2 LSB, stripped, 1032612 B) — relevant anchor for CVE-2022-31414 (prog.cgi).",
+    "No literal '1.11B03'/'111b03'/'20200516' string inside rootfs etc/ or web roots (grep -rIa): firmware version is carried in the image header version block; runtime version likely from NVRAM default.",
+    "etc/sdk.version=1443366e (SDK build id) and etc_ro/mydlink/version=3.0.0-b89 (mydlink agent) are component versions, not firmware version — not contradictions.",
+    "Additional ELFs confirming arch: bin/prog-cgi, usr/sbin/pppoe-discovery, usr/sbin/dhcp6ctl, usr/sbin/mosquitto (all MIPS32 rel2 LSB, /lib/ld-uClibc.so.0)."
+  ]
+}

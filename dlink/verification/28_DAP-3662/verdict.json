@@ -1,0 +1,58 @@
+{
+  "target_id": "28_DAP-3662",
+  "model": "DAP-3662 Rev. A",
+  "firmware_version": "v101EUrc023 (1.01 EU, rc023)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/28_DAP-3662/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2024-28436",
+      "verdict": "confirmed",
+      "version_gate": "unclear",
+      "vuln_type": "reflected XSS (into JS string context in <script>)",
+      "target_binary": "www/session_login.php (rendered via sbin/atp + usr/sbin/xmldb ephp)",
+      "endpoint": "/session_login.php (GET, pre-auth)",
+      "parameter": "reload",
+      "handler_address": "0x401510 (atp procPage; entry atp_main@0x401b50)",
+      "sink": {
+        "func": "unescaped PHP short-echo <?=$reload?> into <script> JS string (register_globals binding, no escaping anywhere in www/)",
+        "call_site": "www/session_login.php:14"
+      },
+      "evidence": [
+        "grep -n 'reload' rootfs/www/session_login.php -> `14: var wr_reload = \"<?=$reload?>\";` — GET 参数未转义回显进 <script> 块内 JS 字符串，`reload=\");alert(1);//` 或 `</script><script>...` 即注入",
+        "objdump sbin/atp @0x401b50 atp_main: `procPage(argv[1], getenv(\"QUERY_STRING\"))` — QUERY_STRING 为用户可控输入源",
+        "objdump sbin/atp @0x401510 procPage: '&'->'\\n' @0x40178c, URL-decode %XX 与 '+'->' ' @0x4017d8-0x4018f0 — 参数解码后拼入 name=value\\n 缓冲",
+        "objdump sbin/atp @0x405f50 lrgdb_ephp: 经 /var/run/xmldb_sock (串@0x409110, IPC cmd 10) 送 xmldb 守护进程; usr/sbin/xmldb xmldb_ephp@0x40e6b0 按 '\\n'/'=' 切分后经 ephp_set_var 注册为 PHP 全局变量（register_globals 语义）",
+        "grep -rn '$_GET\\|$_POST\\|$_REQUEST' rootfs/www/ -> 无匹配 — www/ 全部依赖 register_globals 风格变量绑定，$reload 即 HTTP 参数",
+        "objdump sbin/httpd process_request @0x4112c4-0x4113e4: get_session_id/check_session 仅当扩展名 ==\"xgi\"(串@0x425330) 或 \"_int\"(串@0x425334) 才调用，失败输出 'login incorrect !'(串@0x42533c)+401 — .php 扩展名不经 httpd 会话门",
+        "www/model/__auth_check.php: 鉴权失败($AUTH_RESULT==401)时引入 session_login.php 渲染登录页; session_login.php 自身无鉴权 require -> 未认证可达，pre-auth XSS",
+        "grep -rn 'htmlspecialchars\\|htmlentities\\|urlencode\\|str_replace' rootfs/www/ -> 无匹配 — 整个 www/ 无任何输出转义设施"
+      ],
+      "reason": "reload 参数从 QUERY_STRING 经 atp procPage@0x401510（URL 解码）→ xmldb ephp register_globals 绑定，未转义回显进 session_login.php:14 的 JS 字符串；httpd 会话门仅覆盖 xgi/_int 扩展名且 session_login.php 为登录页本身，pre-auth 可达，反射型 XSS 成立。"
+    },
+    {
+      "cve_id": "CVE-2022-38873",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "DoS via crafted firmware upload (modified header -> arbitrary flash write -> brick)",
+      "target_binary": "sbin/httpd",
+      "endpoint": "upload_image._int (POST multipart; form in www/tool_fw.php, progress page www/sys_fw_update.php)",
+      "parameter": "uploaded firmware header fields (sign@0x0, magic@0x20, version@0x28; per-block: len@+68, flash offset@+72, mtd name@+76, MD5@+108, payload@+124)",
+      "handler_address": "0x41a898 (upload_image; dispatch process_internal@0x413870; flash routine fw_flash@0x41a054)",
+      "sink": {
+        "func": "fwrite(payload@block+124, 1, len@block+68, fopen(mtd@block+76,\"w+\")) preceded by system(\"umount %s\", mtd@block+76) and fseek(offset@block+72)",
+        "call_site": "0x41a250 (fwrite jalr, GOT load 0x41a248); 0x41a10c (system umount); 0x41a124 (fopen)"
+      },
+      "evidence": [
+        "版本门: advisory 范围 'DAP-3662 v1.05rc047 and earlier'; 本构建固件头@0x28 'v101EUrc023v2316dap3662' 与 etc/config/buildrev 'v101EUrc023v2316s53869' -> 1.01rc023 <= 1.05rc047，在范围内 (pass)",
+        "grep -n 'upload_image' rootfs/www/tool_fw.php -> `<form name=\"frm_image\" method=\"POST\" action=\"upload_image._int\" enctype=\"multipart/form-data\">` + `<input type=\"file\" name=\"firmware\">` — 认证后固件上传入口",
+        "objdump sbin/httpd upload_image@0x41a898: 仅校验 size>=37、magic image[0x20]==maybe_swap(0x20080321)（sub@0x413e10 条件字节序，本机恒 0x21030820）、前 32B 签名==g_signature（公开设备签名 wapac11_dkbs_dap3662，httpd 以 `-s /etc/config/image_sign` 载入，可从任一官方镜像获得）或 '<前缀>_aLpHa' 工程旁路",
+        "objdump sbin/httpd parse_blocks@0x41a6ec: 逐记录 MD5Init/MD5Update(offset+72,4)/MD5Update(mtd+76,32)/MD5Update(payload+124,len)/MD5Final 后 memcmp 摘要 vs +108 — 无密钥 MD5，改头后可自行重算；链尾须==文件长",
+        "版本串@0x28 在 upload_image@0x41a898 与 fw_flash@0x41a054 中无任何比较 — 唯一'真实性'凭据是公开明文签名+常量 magic+可重算 MD5，无数字签名",
+        "objdump sbin/httpd check_upgrad@0x41a30c: flag 置位>=4s 后 15x system(\"killall neaps/servd/.../snmpd/cwmHelper\") 清场，flag==1 -> jal fw_flash@0x41a4e4",
+        "objdump sbin/httpd fw_flash@0x41a054 注释反汇编: sprintf(buf,\"umount %s\",block+76)@0x41a0ec（格式串@0x426b60 实读 'umount %s'）+ system@0x41a104/jalr@0x41a10c; fopen(block+76,\"w+\")@0x41a11c/0x41a124; fseek(*(block+72))@0x41a224/0x41a22c; fwrite(block+124,1,*(block+68))@0x41a248/0x41a250 — mtd 设备名/flash 偏移/长度/payload 全部取自上传头",
+        "伴生进程检查(4.e): etc/templates/upload.sh 仅处理 stunnel 证书等非 image 服务; /etc/scripts/misc/preupgrade.sh 仅 rgdb 置位+upnpd stop; 刷写全程在 httpd 进程内(fw_flash)完成，无其他守护进程接触镜像数据 — 伴生侧无第二 sink，漏洞链闭环在 httpd 内"
+      ],
+      "reason": "固件唯一完整性校验是公开明文签名+常量 magic+无密钥可重算 MD5，版本串完全不校验，fw_flash@0x41a054 按上传头中的 mtd 名/偏移/长度任意刷写 flash（system(\"umount %s\")@0x41a10c + fwrite@0x41a250），改头重算 MD5 即可上传致砖镜像实现 DoS，与 advisory 'uploading a crafted firmware after modifying the firmware header' 一致。"
+    }
+  ]
+}

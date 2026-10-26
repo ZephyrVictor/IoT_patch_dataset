@@ -1,0 +1,58 @@
+{
+  "target_id": "25_DAP-1620",
+  "model": "DAP-1620 Rev. A",
+  "firmware_version": "1.03b08beta03 (103b08-03_ALL_multi_20160309, built 2016-03-09)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/25_DAP-1620/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2025-2620",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "stack-based buffer overflow (CWE-121)",
+      "target_binary": "lib/mod_graph_auth.so (lighttpd module)",
+      "endpoint": "any URI path (GET /<path>), handled during uri_clean phase",
+      "parameter": "HTTP request URI path (con->uri.path->ptr)",
+      "handler_address": "0x16b4 (mod_graph_auth_uri_handler, module-relative)",
+      "sink": {"func": "sprintf", "call_site": "0x2374 (mod_graph_auth.so+0x2374), format \"/www%s\" @0x31fc, dest str_2=sp+168"},
+      "evidence": [
+        "readelf --dyn-syms lib/mod_graph_auth.so: exports mod_graph_auth_plugin_init @0x2a18; plugin_init sets p->[0x20]=0x16b4 (uri handler callback registered at plugin+32)",
+        "strings -a lib/mod_graph_auth.so: 0x31fc \"/www%s\", 0x3320 \"mod_graph_auth_uri_handler\", 0x3308 \"graph_auth\" — module and handler name strings present",
+        "objdump -d mod_graph_auth.so 0x16c0: addiu sp,sp,-1272 (frame); 0x16c4: sw ra,1268(sp) — destination buffer sp+168 lies 1100 bytes below saved ra",
+        "objdump 0x2360-0x2378: lw a1,page0(gp); lw t9,sprintf(GOT 0x434a4); addiu s1,sp,168; addiu a1,a1,12796(=0x31fc \"/www%s\"); move a2,s0; jalr t9; move a0,s1 => sprintf(str_2, \"/www%s\", ptr)",
+        "objdump 0x22b0-0x22e4: lw a1,324(s4) (con->uri.path buffer*); beqz v0,0x22e4 taken when sub_1010(\"setup_wizard_ap\",\"1\")==0 i.e. normal (non-wizard) operation; 0x22e4: lw s0,0(a1) => s0 = con->uri.path->ptr (request path)",
+        "sub_1010 @0x1010 disassembly: sprintf(cmd,\"/bin/nvram get %s\",name); popen; fgets; return strcmp(result,expected)==0 — nvram_match semantics",
+        "objdump 0x2308-0x2358: strcmp(uri,\"/HNAP1/\"); rindex(uri,'/'); strlen — only guards empty path and single-char trailing component; NO length check before sprintf",
+        "Pre-auth ordering: sprintf at 0x2374 executes BEFORE session logic — allow-file access()/stat64()/session-timeout checks appear only at 0x23c0-0x24f8 (debug label \"auth_session_exist\" line 335 at 0x243c)",
+        "sbin/lighttpd readelf --dyn-syms: plugins_call_handle_uri_clean @0x41b6f8; crash-site 0x41b7f0 is the plugin callback invocation inside it — matches POC (\"pointer dereference error at 0x41b7f0 within plugins_call_handle_uri_clean\")",
+        "etc/conf.d/graph_auth.conf: server.modules += ( \"mod_graph_auth\" ) — module is loaded in production config; etc/modules.conf includes conf.d/graph_auth.conf",
+        "POC (notion, fetched via loadCachedPageChunk): mod_graph_auth_uri_handler <mod_graph_auth.so+0x16b4>, sprintf(str_2,\"/www%s\",ptr), GET /cyclic(4000) — all identifiers match this build exactly"
+      ],
+      "reason": "mod_graph_auth.so loaded by lighttpd; its uri handler at +0x16b4 sprintf's the attacker-controlled request path into stack buffer str_2 (sp+168, 1100 bytes below saved ra) with format \"/www%s\" and no length check, reachable pre-auth in normal operation mode; handler address, format string and crash site match the public POC byte-for-byte."
+    },
+    {
+      "cve_id": "CVE-2025-2621",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "stack-based buffer overflow (CWE-121)",
+      "target_binary": "sbin/lighttpd",
+      "endpoint": "GET /storage?uid=<value>",
+      "parameter": "uid (query string of /storage URI)",
+      "handler_address": "0x412730 (check_dws_cookie, size 760)",
+      "sink": {"func": "strcpy", "call_site": "0x41281c (strcpy(uid_str=sp+6328, strstr(uri,\"?uid=\")+1), dest memset to 13 bytes at 0x4127e8)"},
+      "evidence": [
+        "readelf --dyn-syms -W sbin/lighttpd: 266: 00412730 760 FUNC check_dws_cookie; 222: 00412594 412 FUNC replace_special_char; 199: 00412a28 9104 FUNC http_request_parse — all three functions exist as real symbols",
+        "objdump http_request_parse 0x414bc8-0x414bd0: lw t9,-31920(gp) (GOT 0x46d800 -> check_dws_cookie); jalr t9 at 0x414bd0 — call site address identical to POC's stated 0x414BD0",
+        "objdump check_dws_cookie 0x41275c-0x412778: lw v0,260(a1) (con->request.uri); strncmp(uri->ptr, \"/storage\", 8) via GOT strncmp — /storage prefix gate (string @0x42a0fc)",
+        "objdump 0x412790-0x4127cc: memset(sp+5248,0,1024); strcpy(sp+5248, con->request.uri->ptr); replace_special_char(sp+5248) — full raw URI (incl. ?query) copied into 1024-byte stack buffer (con->request.uri holds raw line at this stage; path/query split happens later in http_response_prepare)",
+        "objdump 0x4127d4-0x4127e8: memset(sp+6328, 0, 13) — 13-byte uid_str buffer (matches POC's '13-byte-size buffer uid_str')",
+        "objdump 0x4127f0-0x412804: strstr(sp+5248, \"?uid=\") (string @0x42a108 via GOT strstr)",
+        "objdump 0x41280c-0x412820: beqz v0 skips if not found; move a0,s2(sp+6328); lw t9,-31436(gp) (GOT 0x46d9e4 -> 0x426a80 = strcpy); jalr t9; delay slot addiu a1,v0,1 => strcpy(uid_str, strstr_ret+1) — UNBOUNDED copy of \"uid=<value>\" into 13-byte stack buffer",
+        "Frame: addiu sp,sp,-6416; sw ra,6412(sp) — uid_str(sp+6328) sits 84 bytes below saved ra, so POC's cyclic(100) (104 bytes with 'uid=' prefix) overwrites the return address",
+        "Cookie fallback path bounded: 0x412830-0x412880 array_get_element(con->request.headers,\"Cookie\") then fixed 12-byte lwl/lwr copy into uid_str — only the ?uid= query path is unbounded",
+        "Companion-process check per workflow 4.e: sink is in lighttpd itself during http_request_parse (request-line stage, before auth/handlers); no IPC forwarding involved; /bin/ssi cookie handling (HTTP_COOKIE at ssi+0x31530, 'ID=%s') is a separate later-stage CGI path not needed for this CVE; /dws/api/ string @lighttpd 0x2a220 confirms DWS handler family",
+        "POC (notion, fetched via loadCachedPageChunk): GET /storage?uid=cyclic(100), check_dws_cookie called from http_request_parse at 0x414BD0, uid copied into 13-byte uid_str — all identifiers and addresses match this build exactly"
+      ],
+      "reason": "check_dws_cookie exists as a real symbol in sbin/lighttpd at 0x412730, is called pre-auth from http_request_parse at exactly 0x414bd0 as the POC states, and copies the attacker-controlled uid query value of /storage URIs via unbounded strcpy into a 13-byte stack buffer 84 bytes below the saved return address."
+    }
+  ]
+}

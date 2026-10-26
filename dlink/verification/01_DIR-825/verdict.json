@@ -1,0 +1,57 @@
+{
+  "target_id": "01_DIR-825",
+  "model": "DIR-825 Rev. B",
+  "firmware_version": "209EUb09_03_ALL_multi_20130114 (v2.09EUb09beta03, 2013-01-14, HW B1)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/01_DIR-825/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2025-10666",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "stack-based buffer overflow (CWE-120, unbounded sprintf %s)",
+      "target_binary": "sbin/httpd",
+      "endpoint": "/apply.cgi (render sub_4106d4) 及同族 action CGI (dhcp_release.cgi / restore_default_wireless.cgi / reboot.cgi / restart.cgi 等)",
+      "parameter": "countdown_time",
+      "handler_address": "0x4106d4",
+      "sink": {
+        "func": "sprintf",
+        "call_site": "0x40f7ec",
+        "function": "redirect_count_down_page@0x40f304"
+      },
+      "evidence": [
+        "版本门: NVD record affectedData 2.0–2.10 全部 affected; 本构建 ver2.09EUb09beta03 (ZIP 内 changes.txt: 'Firmware Version: ver2.09EUb09Beta03 / Hardware: B1 / Date: 14, Jan, 2013') 在范围内; vuldb 提交测试对象同为 DIR-825 Rev.B",
+        "strings -a -t x sbin/httpd | grep countdown_time → '62844 countdown_time' (rodata 0x462844), '62918 <% CmoGetCfg(\"countdown_time\",\"none\"); %>'",
+        "python dump URL handler 表 (0x100002a0, 24B/entry {pattern,mime,aux,post,render,auth}) → #9 pat='apply.cgi*' post=0x410b20(do_apply_post) render=0x4106d4 auth=0x41a5e0(do_auth) — render 地址与 advisory 的 sub_4106d4 完全一致; #34 'restore_default_wireless.cgi*' render=0x4111d0; #35 'reboot.cgi*' render=0x4143e8; #74 'restart.cgi*' render=0x432e6c",
+        "objdump: do_apply_post@0x410b20 → wfgets(0x100cd670 post_buf, min(content_len+1,10000)) + init_cgi(post_buf) — POST body (≤10000B) 全量解析为 CGI 参数",
+        "objdump: sub_410518@0x410518 → 0x4105c0 get_cgi(\"countdown_time\"@0x462844) → 0x410618 nvram_set(\"countdown_time\",val) → 0x410648 nvram_commit(); 由 14 个 action render (dhcp_release.cgi@0x410c4c, dhcp_renew.cgi@0x410d08, pppoe_00_connect.cgi@0x411ca4, l2tp_connect.cgi@0x412514, pptp_connect.cgi@0x4126e0, ipv6_pppoe_connect.cgi@0x413190 …) 经锚点计算调用 t9=0x410000+1304",
+        "objdump: redirect_count_down_page@0x40f304 (size 3136) → 0x40f3c0 nvram_get(\"html_response_page\") → 0x40f3f4 sprintf(sp+32,\"%s%s\",\"/www/\",page) → fopen; 0x40f4e0 jalr nvram_get(\"countdown_time\") → 0x40f4e8 sw v0,2220(sp)",
+        "objdump SINK: 0x40f7d4 lw a3,2220(sp) | 0x40f7e4 addiu a1,a1,-108 (=0x46ff94 \"%s%s%s\") | 0x40f7f0 move a0,s3 (=sp+64, 1024B 栈缓冲, memset 1024@0x40f4f4) | 0x40f7ec jalr sprintf — countdown_time 值经无界 %s 拷入 1024 字节栈缓冲, 无任何长度检查",
+        "objdump: render@0x4111d0 (restore_default_wireless.cgi) → 0x411230 get_cgi(\"html_response_page\") → 0x4112c0 nvram_set(\"html_response_page\",val) → 0x41130c jalr redirect_count_down_page(stream,5,fn_40ED50(30),1) — 溢出触发请求中模板路径亦可由 POST 参数控制",
+        "grep 'CmoGetCfg(\"countdown_time\"' rootfs/www/*.asp → reboot.asp:108 / back_network.asp:129 / restore_succeeded.asp:140 / ustatus.asp:145 — 含该标签的模板文件真实存在, fopen 可成功打开并被逐行替换",
+        "完整攻击链 (认证后, CVSS PR:L 吻合): ① POST /dhcp_release.cgi body 含 countdown_time=<~9000B> → nvram_set+commit 持久化; ② POST /restore_default_wireless.cgi body 含 html_response_page=reboot.asp → redirect_count_down_page → fopen(/www/reboot.asp) → 标签替换 sprintf(sp+64,\"%s%s%s\",prefix,<9000B>,rest) → 覆盖返回地址 (帧 2264B, ra 于栈顶); 亦可经 apply.cgi reboot_type=shutdown 分支 (0x4108ec jalr redirect_count_down_page) 触发同一 sink"
+      ],
+      "reason": "apply.cgi 渲染函数与 advisory 指名的 sub_4106d4 地址完全一致 (0x4106d4), 其调用的 redirect_count_down_page 在 0x40f7ec 处以无界 sprintf %s 将 nvram 中攻击者可控的 countdown_time (≤10000B POST 参数, 经 14 个 action CGI 的 sub_410518 nvram_set+commit 写入) 拷入 1024 字节栈缓冲, handler、sink、参数可控路径三要素齐备且模板文件存在, 无修补痕迹。"
+    },
+    {
+      "cve_id": "CVE-2024-0717",
+      "verdict": "absent",
+      "version_gate": "unclear",
+      "vuln_type": "information disclosure (GET /devinfo?area=notice|net|version)",
+      "target_binary": "sbin/httpd (rootfs 内唯一 HTTP 服务器)",
+      "endpoint": "/devinfo",
+      "parameter": "area",
+      "handler_address": null,
+      "sink": null,
+      "evidence": [
+        "版本门: advisory 受影响列表含 DIR-825, 范围为日期式 'up to 20240112' 无固件粒度 → 记 unclear, 按 agent.md 继续逆向判定",
+        "python dump httpd URL handler 表全量 81 个 pattern (**.cmo/**.asp/apply.cgi*/…/device.xml=*/switch_language.cgi*) → 无任何 'devinfo' 路由",
+        "strings -a sbin/httpd | grep -ic devinfo → 0; grep 'notice|net|version|\"area\"' → 无匹配 (无 area 参数处理)",
+        "grep -rlia devinfo <rootfs> → 仅 www/*.asp 与 www/lang_*.js (JS 菜单翻译标签 var _devinfo=\"Device Info\"), 无任何 ELF 二进制含该字符串",
+        "find <rootfs> -iname '*devinfo*' → 仅 www/TEADevInfo.xml, 为静态 TEA 网关描述 XML (model_name=WBR-2310 模板, 无 area/notice/net/version 字段, 不可带参数请求)",
+        "伴生进程检查 (agent.md 4.e): strings -a sbin/miniupnpd | grep -i 'devinfo|HTTP/1.1|GET /' → 仅 SOAP/SSDP 状态行 (HTTP/1.1 501/404/200, NOTIFY * HTTP/1.1), 无 /devinfo 路由",
+        "伴生进程检查续: avahi-daemon/nmbd/lld2d/llmnr/dnsmasq/tftpd 逐个 strings|grep -ic devinfo → 全部 0"
+      ],
+      "reason": "本构建唯一 HTTP GET 处理器 sbin/httpd 的 81 条 URL 路由表与字符串表中均无 /devinfo 端点, area 参数不存在; 全 rootfs 无任何二进制含 devinfo 字符串; 已查伴生守护进程 miniupnpd(仅 SOAP/SSDP)/avahi-daemon/nmbd/lld2d/llmnr/dnsmasq/tftpd 均无该端点 — advisory 所述接口为其他固件分支 (俄版 DWC 系) 特征, 在本 2013 年 Rev.B 构建中不存在。"
+    }
+  ]
+}

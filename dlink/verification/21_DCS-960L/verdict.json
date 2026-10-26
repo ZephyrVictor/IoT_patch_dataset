@@ -1,0 +1,61 @@
+{
+  "target_id": "21_DCS-960L",
+  "model": "DCS-960L Rev. A",
+  "firmware_version": "1.09.02 (109b02_all_multi_20200110; image DCS-960L_A1_FW_1.09.02_20191128_r4588.bin)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/21_DCS-960L/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2024-48168",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "stack overflow (pre-auth, unbounded strcpy of SOAP action element name)",
+      "target_binary": "web/cgi-bin/hnap/hnap_service",
+      "endpoint": "POST /HNAP1 (rewritten to /hnap/hnap_service per etc/httpd.ini)",
+      "parameter": "XML element name of the first child inside soap:Body of the HNAP SOAP request (the action element, e.g. <Login>)",
+      "handler_address": "0x402280",
+      "sink": {
+        "func": "strcpy",
+        "call_site": "0x402328"
+      },
+      "evidence": [
+        "readelf --dyn-syms -W web/cgi-bin/hnap/hnap_service: '61: 00403fd0 3120 FUNC GLOBAL DEFAULT 10 Login' / '63: 00402ac0 2560 FUNC GLOBAL DEFAULT 10 main' — handlers exported as dynsym (binary stripped otherwise)",
+        "mips-linux-gnu-objdump -d 0x4022bc-0x402348: function at 0x402280 (frame 1176B) = ixmlLoadDocument(\"/tmp/.hnap_in.xml\") -> ixmlGetElementByTag(doc,\"soap:Body\") -> ixmlNode_getFirstChild -> ixmlNode_cloneNode -> ixmlNode_getLocalName -> strcpy; '402320: move a0,s0; 402324: lw t9,-32148(gp)  ; strcpy; 402328: jalr t9; 40232c: move a1,v0' — dest a0=s0=arg a1 of sub_402280, src a1=LocalName of cloned soap:Body child; NO length check before the copy",
+        "caller main@0x402ac0 prologue: addiu sp,sp,-32752; sw ra,32748(sp); subu sp,sp,0x18330 (total frame 0x20320) — saved ra at sp+0x2031C; call site 0x402cdc-0x402d08: a0=\"/tmp/.hnap_in.xml\"(0x41cd4c), a1=sp+40+0x20004 (ServiceName), a2=sp+40+0x20024 (LoginKey); ServiceName is a 32-byte stack buffer at sp+0x2002C (next buffer LoginKey at sp+0x2004C), only 0x2F0 (752) bytes below main's saved ra",
+        "main 0x402c04-0x402c5c: getenv(\"CONTENT_LENGTH\") -> atoi -> requires len < 0x20000; fread(sp+40,1,len,stdin) — attacker POST body written to /tmp/.hnap_in.xml and parsed by sub_402280; a ~756-byte action element name overwrites main's saved ra (no stack protector: no __stack_chk_* in dynsym)",
+        "strcpy@0x402328 executes before any authentication: GetMultipleHNAPs REMOTE_USER/HNAP_AUTH/COOKIE logic (0x402354+) and the HNAP_AUTH check for non-whitelisted actions (0x4026fc+) all run after the copy",
+        "GOT recovery (no relocations, old-style MIPS): gp=0x438830, slot j>=10 <-> dynsym[15+j-10], 155 slots zero mismatch vs dynsym st_value; slot(gp-32148)=strcpy; anchors __uClibc_main/strcmp verified — see scratch/21_DCS-960L/analysis/{annotate.py,hnap_service.anno.asm}",
+        "strings -a web/cgi-bin/hnap/hnap_service: 'soap:Body'@0x41cbe4, '/tmp/.hnap_in.xml'@0x41cd4c, 'Login'@0x41cbbc, 'GetMultipleHNAPs'@0x41cbd0",
+        "cat etc/httpd.ini: '/HNAP1=/hnap/hnap_service' and '/HNAP1/=/hnap/hnap_service' — classic HNAP endpoint routed to this CGI; web/httpd strings contain '/hnap/hnap_service' + 'runcgi' (pass-through CGI exec, no content filtering)",
+        "version: advisory 'DCS-960L 1.09' / CPE o:dlink:dcs-960l_firmware:1.09; this build is 1.09.02 (image filename DCS-960L_A1_FW_1.09.02_20191128_r4588.bin, folder 109b02_all_multi_20200110; kernel built 'Thu Nov 28 17:11:32 CST 2019' matching 20191128) — same 1.09 line, UI reports 1.09; extract.json's 'contradicting' strings (1.9.7/6.0.0/mydlink 2.2.0) are per-component config values, not firmware versions; code shows no fix (CVE published 2024-10, firmware dated 2019-11)"
+      ],
+      "reason": "The HNAP CGI web/cgi-bin/hnap/hnap_service (MIPS BE, no stack protector) has a function at exactly 0x402280 (matching the advisory's sub_402280; ELF base 0x400000) that strcpy's the attacker-controlled soap:Body action element name into a 32-byte stack buffer in main's frame with no bounds check, 752 bytes below main's saved return address, before any authentication — pre-auth stack overflow confirmed."
+    },
+    {
+      "cve_id": "CVE-2024-44589",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "stack overflow (pre-auth, unbounded strcpy of Login action XML values)",
+      "target_binary": "web/cgi-bin/hnap/hnap_service",
+      "endpoint": "POST /HNAP1 (rewritten to /hnap/hnap_service per etc/httpd.ini)",
+      "parameter": "Action / Username / LoginPassword element values inside <Login> of the HNAP SOAP request body",
+      "handler_address": "0x403fd0 (exported symbol Login)",
+      "sink": {
+        "func": "strcpy",
+        "call_site": "0x404158 (Action -> sp+116, 16B); also 0x4043a4 (Username -> sp+32, 33B) and 0x404400 (LoginPassword -> sp+68, 33B)"
+      },
+      "evidence": [
+        "readelf --dyn-syms -W web/cgi-bin/hnap/hnap_service: '61: 00403fd0 3120 FUNC GLOBAL DEFAULT 10 Login' — the advisory's 'Login function' is an exported symbol at 0x403fd0 (0x403fd0-0x404c00)",
+        "dispatch chain: main@0x402ac0 -> 0x4021ec(doc, ServiceName, LoginKey) -> 0x401de0(ServiceName) resolver; objdump 0x40216c-0x40218c: strcmp(ServiceName,\"Login\")==0 -> GOT slot -> 'Login@0x403fd0', then 0x402224 jalr t9 = handler(doc, LoginKey)",
+        "pre-auth reachability: sub_402280 action whitelist at 0x402690-0x4026fc strcmp's the action against PushDCHEvent/PushDCHEventList/Login/DoAction and on match branches to 0x402a44 (return to main) BEFORE the HNAP_AUTH/COOKIE/SOAP_ACTION getenv checks at 0x4026fc+ — Login is processed without credentials, as required for a login action",
+        "sink #1 (unconditional): objdump 0x404134-0x40415c: v0=ixmlGetElementValueByTag(Login_el,\"Action\"@0x41d4b0); '404150: addiu a0,sp,116; 404154: lw t9,-32148(gp) ; strcpy; 404158: jalr t9; 40415c: move a1,v0' — strcpy into 16-byte stack buffer (prologue zeroes sp+116..131), no length check",
+        "sink #2: objdump 0x40435c-0x4043a8: s4=ixmlGetElementValueByTag(el,\"Username\"@0x41d4d4); '404398: addiu s3,sp,32; 40439c: move a0,s3; 4043a0: lw t9,-32148(gp) ; strcpy; 4043a4: jalr t9; 4043a8: move a1,s4' — strcpy into 33-byte stack buffer (sp+32..64 zeroed in prologue)",
+        "sink #3: objdump 0x404378-0x404404: s1=ixmlGetElementValueByTag(el,\"LoginPassword\"@0x41d4e0); '4043f8: addiu a0,sp,68; 4043fc: lw t9,-32148(gp) ; strcpy; 404400: jalr t9; 404404: move a1,s1' — strcpy into 33-byte stack buffer (sp+68..100 zeroed in prologue)",
+        "Login prologue: addiu sp,sp,-32752; sw ra,32748(sp); subu sp,sp,0xCA68 (frame 0x14A58) — saved ra at sp+0x14A54; distances from the three buffers: Username 84,532 / LoginPassword 84,496 / Action 84,576 bytes, all below main's CONTENT_LENGTH cap 0x20000 (131,072), so a single large XML value reaches and overwrites the saved return address; no stack protector (no __stack_chk_* in dynsym)",
+        "debug strings confirm the path: 'Login action: %s'@0x41d4b8, 'username: %s'@0x41d4f0, 'loginPassword: %s'@0x41d500, 'LoginResponse'@0x41d440, 'http://purenetworks.com/HNAP1/Login'@0x41d9b4 — all referenced from inside Login@0x403fd0 (xref scratch/21_DCS-960L/analysis/login.anno.asm)",
+        "cat etc/httpd.ini: '/HNAP1=/hnap/hnap_service' — endpoint routed to this CGI; httpd is pass-through ('runcgi'), no filtering of the SOAP body (companion-process due diligence: only companion candidates are web/httpd [router, no body inspection] and hnap_push_service [outbound notifier, different IPC]; neither sanitizes CGI stdin)",
+        "version: same as CVE-2024-48168 — advisory 'firmware 1.09' matches this 1.09.02 (2019-11-28) build of the 1.09 line; PoC reference (Xshacry/iot-vuln dcs-935l readme) describes the same shared HNAP CGI stack; no patched variant present in this image"
+      ],
+      "reason": "Login@0x403fd0 — the exported 'Login' function of the HNAP service CGI — performs three unbounded strcpy calls of attacker-supplied XML values (Action into a 16-byte buffer, Username and LoginPassword into 33-byte stack buffers) with no stack protector, reachable pre-auth via POST /HNAP1; the overflow distances to the saved return address (max 84,576 bytes) fit within the 128KB request size limit, so arbitrary code execution via saved-ra overwrite is possible — confirmed."
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "target_id": "22_DCS-935L",
+  "status": "ok",
+  "cves": [
+    {
+      "cve_id": "CVE-2026-13545",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-13545",
+      "record_source": "local_archive",
+      "refs": [
+        {
+          "url": "https://github.com/Real-Simplicity/cve-database/tree/main/CVE_Report_DLink_DCS935L_Command_Injection",
+          "tags": [
+            "Exploit",
+            "Mitigation",
+            "Third Party Advisory"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/cve/CVE-2026-13545",
+          "tags": [
+            "CVE-2026-13545 | CVE Analysis and Report",
+            "Third Party Advisory"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/submit/842589",
+          "tags": [
+            "Submit #842589 | D-Link DCS-935L HD Wi-Fi Camera 1.10.01 CWE-78: OS Command Injection",
+            "Third Party Advisory"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/vuln/374553",
+          "tags": [
+            "Third Party Advisory",
+            "VDB-374553 | D-Link DCS-935L POST Parameter setconf.cgi sub_400E40 os command injection"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/vuln/374553/cti",
+          "tags": [
+            "Permissions Required",
+            "VDB-374553 | CTI Indicators (IOB, IOC, TTP, IOA)"
+          ]
+        },
+        {
+          "url": "https://www.dlink.com/",
+          "tags": [
+            "Product"
+          ]
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2026-12174",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-12174",
+      "record_source": "local_archive",
+      "refs": [
+        {
+          "url": "https://github.com/Real-Simplicity/cve-database/tree/main/CVE_Report_DLink_DCS935L_Format_String",
+          "tags": [
+            "Third Party Advisory"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/cve/CVE-2026-12174",
+          "tags": [
+            "CVE-2026-12174 | CVE Analysis and Report",
+            "Third Party Advisory",
+            "VDB Entry"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/submit/837209",
+          "tags": [
+            "Submit #837209 | D-Link DCS-935L HD Wi-Fi Camera 1.10.01 CWE-134: Use of Externally-Controlled Format String",
+            "Third Party Advisory",
+            "VDB Entry"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/vuln/370815",
+          "tags": [
+            "Third Party Advisory",
+            "VDB Entry",
+            "VDB-370815 | D-Link DCS-935L HTTP rhea snprintf format string"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/vuln/370815/cti",
+          "tags": [
+            "Permissions Required",
+            "VDB Entry",
+            "VDB-370815 | CTI Indicators (IOB, IOC, IOA)"
+          ]
+        },
+        {
+          "url": "https://www.dlink.com/",
+          "tags": [
+            "Product"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "target_id": "26_DAP-1350",
+  "model": "DAP-1350 Rev. A",
+  "firmware_version": "1.14EUb01 (zip: 114eub01_EU_en_20120529)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/26_DAP-1350/extract/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2014-3872",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "SQL injection",
+      "target_binary": "usr/bin/my_cgi.cgi (handler do_login), sink executed via lib/libdbapi.so.1 -> lib/libsqlite3.so.0",
+      "endpoint": "administration login page: lighttpd index login.htm, CGI exposed at /HNAP1, /post_login.xml, *.cgi (mnt/lighttpd/lighttpd.conf alias.url + cgi.assign)",
+      "parameter": "user_name / user_pwd (base64-encoded in POST body request=login&user_name=<b64>&user_pwd=<b64>)",
+      "handler_address": "0x40d628 (do_login, 964 bytes, exported in .dynsym)",
+      "sink": {
+        "func": "sprintf -> exec_sql -> sqlite3_exec",
+        "call_site": "0x40d7c4 (jalr sprintf, fmt \"select level from user where user_name='%s' and user_pwd='%s'\" @0x420ce4 loaded at 0x40d7bc, dst=global char sql[300] @0x48ec08); exec_sql call at 0x40d7f8; libdbapi.so.1 exec_sql+0x80 -> sqlite3_exec"
+      },
+      "evidence": [
+        "version: strings usr/bin/my_cgi.cgi | '1.14EU'; zip changes.txt 'Firmware: 1.14EUb01 / Hardware: A1 / Date: 29 May 2012'; www/xml/model_info.xml <hw_ver>A1</hw_ver> — advisory range '1.14 and earlier' + Rev. A1 matches exactly",
+        "endpoint: mnt/lighttpd/lighttpd.conf:226-233 alias.url = ( \"/HNAP1/\" => \"/www/my_cgi.cgi\", \"/post_login.xml\" => \"/www/my_cgi.cgi\", ... ); cgi.assign = ( \".cgi\" => \"/www/my_cgi.cgi\"); index-file.names = (\"login.htm\"); no auth/filter module loaded (mod_access/mod_redirect/mod_cgi/mod_accesslog only)",
+        "param source: www/rt/login.htm:59 JS 'para = \"request=login&user_name=\" + encode_base64(user_name) + \"&user_pwd=\" + encode_base64(user_pwd);' — form fields user_name/user_pwd (login.htm:106,115)",
+        "dispatch: my_cgi.cgi .dynsym 'do_login FUNC 0040d628'; main(0x40a6c8) calls get_input_entries(0x404f58) which reads POST body from stdin (fgetc), splits on '='(0x3D)/'&'(0x26), entry stride 633 bytes, value at +32, then replace_special_char(value); main strcmp(entry[0].value,\"login\")@0x40ae18 -> jalr do_login @0x40b300",
+        "no sanitization: replace_special_char(0x404d88) is only a %xx URL decoder (fmt \"%c%c\"@0x41EAD0 + strncmp over 25-entry encoding_code table); non-'%' bytes copied verbatim (sb v1,0(s4) @0x404e2c) — single quotes and SQL metacharacters pass through",
+        "decode: do_login calls b64_decode(req+665=entry[1].value, sp+24, 30) @0x40d6e8 and b64_decode(req+1298=entry[2].value, sp+56, 30) @0x40d710; libputil.so b64_decode@0x608c 3rd arg is dst-size cap (slt t2,a2 guard before sb) — length cap only (30 bytes), payload like \"' OR '1'='1\" fits trivially",
+        "SINK: strings -a -t x my_cgi.cgi: '  20ce4 select level from user where user_name=\\'%s\\' and user_pwd=\\'%s\\''; do_login: lw a1,GOT[0x46456c](local base 0x420000) @0x40d7b4; addiu a1,a1,3300(0xce4) @0x40d7bc; move a2,s2(username sp+24), a3=s3(password sp+56), a0=sql global; jalr sprintf @0x40d7c4 — attacker-controlled username/password concatenated into SQL with no escaping",
+        "second injectable query: addiu a1,a1,3364(0xd24) @0x40d85c -> fmt 0x420d24 \"select level from user where user_name='%s'\" (username only), sprintf @0x40d860, exec_sql @0x40d878",
+        "execution: exec_sql(my_db->sqlite3, sql, buf) jalr @0x40d7f8 (my_db=struct @0x464aa4 holding sqlite3* opened by main open_db()); libdbapi.so.1 exec_sql@0xfb4: memset(buf,0,0x4F208) then sqlite3_exec(db, sql, callback_exec, buf, &errmsg) @libdbapi+0x1034 — injected statement executed verbatim",
+        "target DB contains user table: mnt/rt.db & mnt/ap.db & mnt/apc.db: CREATE TABLE \"user\" (\"user_name\" VARCHAR NOT NULL , \"user_pwd\" VARCHAR NOT NULL , \"level\" CHAR NOT NULL ); default row ('admin', '', '1')",
+        "default no captcha (only non-sanitization obstacle): graph_auth table default graph_auth_enable='0' in mnt/rt.db, mnt/ap.db, mnt/apc.db (sqlite3 read); check_graphical_number(0x40d3f4) runs 'select graph_auth_enable from graph_auth where rowid = 1', atoi==0 -> returns 0 (pass) @0x40d528-0x40d530",
+        "companion-process check (agent.md 4.e): sink is in-process (my_cgi.cgi -> libdbapi.so.1 -> libsqlite3.so.0), no IPC/pipe/shared-file forwarding of login params; lighttpd adds no filter; no other daemon (system_manager etc.) touches login SQL — nothing forwarded, so absence of secondary filtering is final"
+      ],
+      "reason": "Version exactly 1.14EUb01/Rev A1 (in '1.14 and earlier'); do_login sprintf-concatenates base64-decoded user_name/user_pwd into 'select level from user where user_name=\\'%s\\' and user_pwd=\\'%s\\'' and passes it to sqlite3_exec via exec_sql with zero escaping anywhere (replace_special_char is only a %xx decoder, b64_decode only caps length at 30); login is the unauthenticated entry page and default DB has captcha disabled."
+    }
+  ]
+}

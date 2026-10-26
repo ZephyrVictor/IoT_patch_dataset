@@ -1,0 +1,54 @@
+{
+  "target_id": "24_DCS-7410",
+  "model": "DCS-7410 Rev. A",
+  "firmware_version": "1.00_patch01 (internal 1.0.0-7712, package 100b7712_all_en_20180605, 2018 phaseout security repack)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/24_DCS-7410/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2013-1599",
+      "verdict": "absent",
+      "version_gate": "unclear",
+      "vuln_type": "command injection",
+      "target_binary": "/var/www/cgi-bin/rtpd.cgi (advisory-named; does not exist in this build)",
+      "endpoint": "/var/www/cgi-bin/rtpd.cgi",
+      "parameter": "not named by advisory",
+      "handler_address": null,
+      "sink": null,
+      "evidence": [
+        "ls rootfs/var/www/ → cgi/ admin/ xsl/ ... (no cgi-bin dir); ls rootfs/var/www/cgi/ → eventstream.cgi home_connection.cgi index.cgi liveView.cgi logout.cgi mainFrame.cgi ptdc.cgi ptz485dc.cgi skeleton.cgi web_event.cgi + admin/ (60 CGIs) — rtpd.cgi nowhere in rootfs (find rootfs -name 'rtpd*' → only sbin/rtpd, etc/rtpd.conf, etc/rc.d/init.d/rtpd.sh)",
+        "grep -rn rtpd rootfs/var/www/ → (no output) — zero references to rtpd in any CGI/HTML/xsl under the whole web tree; grep -rl rtpd rootfs → only etc/rc.d/init.d/{rtpd,services,trservices,getters,network}.sh",
+        "cat etc/rc.d/init.d/rtpd.sh → start() merely execs $prefix/sbin/rtpd with RTPD_SKIP_FRAMES/RTPD_QUALITY/RTPD_AUTO_ADJUST env from etc/rtpd.conf — no web-facing interface to rtpd",
+        "strings -a sbin/rtpd | grep -iE 'Authoriz|password|passwd|admin|checkAuth' → (empty) — companion rtpd daemon carries no auth/command strings (IPC-only, driven by rtspd)",
+        "companion-process check done: all 71 CGIs under var/www/cgi/ + var/www/cgi/admin/ (none reference rtpd), sbin/rtpd (no auth/web strings), sbin/rtspd (RTSP protocol only)",
+        "version context: etc/db/dbinput.db [System] Version=1.0.0-7712, OEMVersion=1.00_patch01; zip contains 'Release note for D-Link_Phaseout_Models_Vulnerabilities.xls' — advisory lists DCS-7410 1.00 (2013-era builds); this 1.00_patch01_7712 is the 2018-06-05 phaseout security repack"
+      ],
+      "reason": "Advisory-named script /var/www/cgi-bin/rtpd.cgi does not exist anywhere in this build and no web component forwards to the rtpd daemon (companion rtpd checked: IPC-only, zero auth/web strings); the rtpd.cgi command-injection interface was removed/reorganized by the 2018 phaseout security repack (1.00_patch01), so the vulnerability is not present. Version gate unclear (advisory '1.00' vs local '1.00_patch01' fix-level repack) — verdict decided on binary evidence."
+    },
+    {
+      "cve_id": "CVE-2013-1603",
+      "verdict": "absent",
+      "version_gate": "unclear",
+      "vuln_type": "authentication bypass via hard-coded credential backdoor (RTSP stream access)",
+      "target_binary": "sbin/rtspd",
+      "endpoint": "RTSP service (tcp/554) — DESCRIBE/SETUP/PLAY/TEARDOWN, Authorization: Basic header",
+      "parameter": "Authorization: Basic <b64('user:pass')>",
+      "handler_address": "0x11004",
+      "sink": {
+        "func": "(backdoor removed) strncmp(decoded+len-3, ':?*', 3)==0 → return 1 — in vulnerable siblings (DCS-2121 1.06 / DCS-5230 1.02); here only a dead-store fossil remains",
+        "call_site": "0x1109c-0x110b4 (str [fp-192] = arg1+len-3, never read again)"
+      },
+      "evidence": [
+        "python byte-search sbin/rtspd: b':?*' → [] ; b'no pssswd' → [] — both the magic string and its printf are absent from the binary",
+        "rootfs-wide byte scan of all 1110 entries (os.walk, ':?*' and 'no pssswd') → NO hits in ANY file — backdoor string exists nowhere in the firmware",
+        "strings -a -t x rtspd → 0x12438 checkAuthentication, 0x12a60 HTTPAccount, 0x12a78 _AdminUser, 0x12a84 AdminPasswd, 0x12a90 'found power user pass!', 0x12ad0 'Authorization: Basic ' — full RTSP auth machinery present, no backdoor strings",
+        "objdump -d rtspd, credential validator @0x11004 (prologue push {r4-r11,fp,ip,lr,pc}): 0x11078 strncmp(arg,':',1) first-char fail→ret 0 @0x11094; 0x110d4 TinyDB::init('HTTPAccount'); 0x110ec getByte('_MaxUsers'); 0x1130c-0x11350 strcpy/strcat(':')/strcat → strcmp(built _AdminUser+':'+AdminPasswd, arg) — match → 0x11368 printf('found power user pass!') ret 1 @0x11388; loop 0x11398-0x11740 builds User<i>+':'+Password<i> (ostringstream @0x11404, strcmp @0x116f4) — match → ret 1 @0x1172c; loop exit 0x1177c→0x118e8 ret 0; exception ret 0 @0x11810",
+        "all retval [fp-288] writes enumerated (0x11094=0, 0x11388=1, 0x1172c=1, 0x11810=0, 0x118ec=0): the ONLY success paths are strcmp matches against TinyDB-stored credentials — no unconditional/short-circuit success branch exists",
+        "0x1109c-0x110b4: add r3,r2,len; sub r3,#3; str [fp-192] — computes decoded+len-3 (exact backdoor pointer arithmetic of vulnerable siblings) but [fp-192] is never read again in the function (grep 'fp, #-192' over 0x11004-0x11904: only the 0x110a0/0x110a4/0x110b4 self-contained sequence) — dead store left behind by removal of the strncmp(tail,':?*',3) check (-O0 build does not eliminate dead stores)",
+        "handler chain intact & hardened: DESCRIBE 0xf33c→bl 0xf348, SETUP 0xf620→0xf62c, PLAY 0xfe4c→0xfe58, TEARDOWN 0x10070→0x1007c (+0x10180, 0x10290) → checkAuthentication @0xf488 (logs 'checkAuthentication', gates on [RTPServer] Authenticate flag @0xf4b0) → credential wrapper 0x11ae8 (b64 decode bl 0x17184 @0x11b90, 1024B buf) → bl 0x11004 @0x11ba8 — 6 auth call sites vs vulnerable sibling DCS-2121 1.06 which authenticated DESCRIBE only",
+        "companion check: strings sbin/rtpd | grep -iE 'Authoriz|password|passwd|admin|checkAuth' → (empty); rtpd is the IPC-fed RTP pusher (DomainSocket) with no auth code of its own",
+        "etc/db/dbinput.db [HTTPAccount]: _AdminUser='admin'(type 03), AdminPasswd=''(empty), User1/Password1 empty, _MaxUsers=20 — factory defaults; not the ':?*' magic-credential backdoor this CVE describes"
+      ],
+      "reason": "The ':?*' magic-credential backdoor that defines CVE-2013-1603 (confirmed present in same-platform siblings DCS-2121 1.06 / DCS-5230 1.02) is provably patched in this build: the magic string and its 'no pssswd' printf exist nowhere in the entire rootfs; rtspd's credential validator @0x11004 grants success ONLY on strcmp match with TinyDB-stored credentials (all 5 return paths enumerated), leaving only a dead-store fossil (arg1+len-3 @0x1109c-0x110b4) of the removed strncmp(tail,':?*',3) check; auth was additionally extended to 6 call sites (DESCRIBE/SETUP/PLAY/TEARDOWN) vs 1 in vulnerable siblings. Version gate unclear (advisory '1.00' vs local 2018 phaseout fix repack '1.00_patch01') — verdict decided on binary evidence. Companions checked: sbin/rtpd (no auth code), all var/www CGIs (RTSP-unrelated)."
+    }
+  ]
+}

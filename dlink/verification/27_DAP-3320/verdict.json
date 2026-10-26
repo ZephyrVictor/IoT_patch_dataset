@@ -1,0 +1,37 @@
+{
+  "target_id": "27_DAP-3320",
+  "model": "DAP-3320 Rev. A",
+  "firmware_version": "1-05rc019_all_en_20170103 (buildrev v105rc019v02316s63174, buildver 1.05)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/27_DAP-3320/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2022-38873",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "DoS（上传篡改头部/伪造固件导致任意刷写闪存致砖）",
+      "target_binary": "sbin/httpd",
+      "endpoint": "POST /upload_image._int（multipart，www/tool_fw.php 上传表单）",
+      "parameter": "上传固件镜像头：签名@0x00(32B)、magic@0x20、版本串@0x28、记录链@0x24（length@rec+0x44、offset@rec+0x48、mtd 目标名@rec+0x4C、无密钥 MD5@rec+0x6C、载荷@rec+0x7C）",
+      "handler_address": "0x41c57c (upload_image) → 0x41c3d0 (record/MD5 校验) → 0x41bd0c (burn_fw 刷写)",
+      "sink": {
+        "func": "fwrite → fopen(record+0x4C 的 mtd 名, \"wb\")（burn_fw 内逐记录写闪存；mtd 名/偏移/长度/载荷全部来自上传镜像且无真实性校验）",
+        "call_site": "0x41be98 / 0x41beb8 / 0x41bf04"
+      },
+      "evidence": [
+        "版本门: extract.json etc/config/buildrev='v105rc019v02316s63174' vs advisory 'DAP-3320 v1.05rc027 beta and earlier' → rc019 < rc027，在范围内（buildver=1.05、镜像头@0x28='v105rc019v02316sdap3320' 一致，无矛盾版本串）",
+        "grep -n 'action=' www/tool_fw.php → '<form ... method=\"POST\" action=\"upload_image._int\" enctype=\"multipart/form-data\"> <input type=file name=firmware>'（登录后固件上传入口）",
+        "readelf --dyn-syms sbin/httpd → 导出符号 upload_image@0x41c57c、process_internal@0x414df0、check_upgrad@0x41bfc8、upload_file@0x43b080、g_signature@0x43b8f0（无 relocation 固件，GOT 槽内容即符号地址，[0x43b4e4]=upload_image/[0x43b55c]=upload_file/[0x43b618]=g_signature/[0x43b7bc]=MD5Init/[0x43b6b8]=MD5Update/[0x43b5f8]=MD5Final/[0x43b500]=memcmp/[0x43b5f0]=fopen/[0x43b794]=fwrite/[0x43b78c]=system）",
+        "objdump -d --start-address=0x41c57c upload_image: 0x41c614 lwl/lwr 取上传数据@0x20 的 BE32，0x41c624 jal 0x415460(0x20080321)，0x41c630 bne→0x41c814 失败'[SYSACT]Image file is not acceptable'；0x415460 经 .data@0x43b0a0 探针(01 02 03 04)恒走 swap 分支 → 期望 magic 固定=0x21030820（真实镜像 @0x20/@0x24 均为 2103 0820）",
+        "upload_image 0x41c660-0x41c694: strncpy(buf,g_signature,32) + strncmp(buf,上传数据,32)——唯一型号绑定是 32 字节明文串比较；0x41c710-0x41c73c 另有 '<签名前缀>_aLpHa' 工程镜像 strcmp 旁路（设备签名 wapn29_dkbs_dap3320 取前缀 wapn29 拼 'aLpHa'）",
+        "etc/templates/httpd/webs_run.php:22 → 'httpd -s '.query('/runtime/layout/image_sign').' -f /var/etc/httpd.cfg'；cat etc/config/image_sign = 'wapn29_dkbs_dap3320'（即 g_signature 来源，与官方镜像头 @0x0 完全相同的公开明文串）",
+        "objdump -d --start-address=0x41c3d0 记录链校验: 0x41c43c 每记录 magic==0x21030820；0x41c450-0x41c46c 长度边界检查(0x44+124+len ≤ size)；0x41c47c-0x41c508 MD5Init/MD5Update(rec+72,4)/MD5Update(rec+76,32)/MD5Update(rec+124,len)/MD5Final+memcmp(digest,rec+108,16)；0x41c540-0x41c548 链尾必须恰好==文件总长（s2^size==0）——MD5 无任何密钥/HMAC，纯完整性摘要",
+        "python3 复算真实镜像: MD5(BE32@0x6C '00000000' + 32B@0x70 '/dev/mtdblock/1'+pad + payload@0xA0 len=0x917020) = 13342abe4756d3f2cf76afb93e918160 == 镜像@0x90 存储值，MATCH=True；0x24+0x7C+0x917020=0x9170C0 == 文件大小 exact=True —— 记录格式与校验逻辑重建字节级精确，MD5 覆盖范围外的版本串@0x28/magic/链结构攻击者可任意改后重算 MD5",
+        "objdump -d --start-address=0x41bd0c burn_fw: 0x41bda8 snprintf(buf,255,'umount %s',rec+76)+0x41bdc8 system()；0x41bdd8 fopen(rec+76, 'wb')；0x41be98 fwrite(data,1,36)/0x41beb8 fwrite(rec,1,124)/0x41bf04 fwrite(rec+124,1,BE32[rec+0x44])，或 fseek(fp,BE32[rec+0x48],0) 后仅写载荷——mtd 目标名、flash 偏移、写入长度、写入内容全部取自上传镜像且除无密钥 MD5 外无任何真实性校验；0x41bf34 syslog '[SYSACT]Firmware update success'",
+        "触发链完整: httpd_main 0x40af58-0x40af78 轮询 [upload_file+20]>0 → jalr check_upgrad@0x41bfc8；check_upgrad 0x41c02c system('etc/scripts/misc/haltdemand.sh')+连串 killall，0x41c1b8-0x41c1c8 若 flag==1 则 jal burn_fw(upload_file+0 数据, upload_file+12 大小)，末尾 0x41c218 reboot(0x1234567)；upload_image 成功路径 0x41c7f0 sw 1,20(upload_file) 即置刷写标志",
+        "版本串@0x28 'v105rc019v02316sdap3320' 在 upload_image/0x41c3d0/burn_fw 中均未被读取比较（httpd 内唯一 firmwareversion 引用是 /runtime/sys/info/firmwareversion 显示用）——无降级/跨版本防护，改头即可过检",
+        "伴生进程检查(absent 前置): 固件路径全部在 httpd 单进程内闭环（multipart 接收 0x40922c→process_internal 0x414df0 分发→upload_image→check_upgrad→burn_fw→reboot），etc/templates/upload.sh 仅处理 stunnel/wapi 证书（devconf put 到 mtdblock/2 配置区，与固件升级无关），etc/scripts/startburning.sh 仅 umount，preupgrade.sh 'submit COMMIT' 为配置提交——无独立校验/签名守护进程，不存在伴生侧二次校验"
+      ],
+      "reason": "版本门通过（rc019 ≤ rc027 上限）；固件升级链 sbin/httpd upload_image@0x41c57c 对上传镜像的全部'真实性'校验仅为公开明文签名串比较（/etc/config/image_sign='wapn29_dkbs_dap3320'，与官方镜像头@0x0 相同）+常量 magic 0x21030820+无密钥 MD5（已用真实镜像字节级复算验证，MATCH=True），版本串与 mtd 目标/偏移/长度均不校验且 MD5 可重算；校验通过后 check_upgrad→burn_fw 将攻击者可控字节 fwrite 到攻击者可控的 /dev/mtdblock/* 后 reboot——修改固件头上传伪造镜像即可致砖（DoS），另有 '<前缀>_aLpHa' 工程镜像旁路完全跳过签名比对。"
+    }
+  ]
+}

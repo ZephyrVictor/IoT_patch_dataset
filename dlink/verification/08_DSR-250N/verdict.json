@@ -1,0 +1,39 @@
+{
+  "target_id": "08_DSR-250N",
+  "model": "DSR-250N Rev. A1",
+  "firmware_version": "3.17B901C_WW (317b901c_all_en_20220612)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/08_DSR-250N/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2024-57376",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "stack buffer overflow (CWE-120), pre-auth RCE",
+      "target_binary": "lib/lua/5.1/captivePortalLib.so (luaL module loaded into bin/cgi Kepler Lua CGI process)",
+      "endpoint": "/platform.cgi (POST, action=duaLogout) — lighttpd, docroot /pfrm2.0/var/www",
+      "parameter": "externalCpResult (JSON fields clientMac / clientIp), also raw extCpResult string",
+      "handler_address": "0x1854 (lua_duaLogoutInfoGet, exported dynsym, size 0x1c4)",
+      "sink": {
+        "func": "strcpy",
+        "call_site": "0x1960 (dst = 50-byte stack buffer sp+894, src = parsed clientMac value; additional unchecked strcpy at 0x1900 dst=sp+12 512B and 0x19b8 dst=sp+844)"
+      },
+      "evidence": [
+        "版本门: cat rootfs/etc/dlink_version -> '3.17B901C_WW'; NVD CPE dsr-250n_firmware versionStartIncluding=3.13 versionEndIncluding=3.17B901C -> 本构建恰为含端上界, pass",
+        "路由: rootfs/etc/lighttpdInit -> 'cgi.assign=(\".cgi\" => \"\")', server.document-root=/pfrm2.0/var/www, index-file platform.cgi",
+        "路由: var/www/platform.cgi (sh) -> 'export PATH_INFO=/platform.lua' + exec /pfrm2.0/bin/cgi (Kepler Lua CGI, ARM ELF 6160B stripped)",
+        "分发: strings -a var/www/platform.lua -> 'DUA_LOGOUT_PAGE' 'duaLogout.lua' (另 DUA_AUTH_PAGE=duaAuth.lua, DUA_NOTIFY_PAGE=duaNotify.lua)",
+        "入口: strings -a var/www/duaLogout.lua (Lua 5.1 bytecode) -> 'require' 'teamf1lualib/duaCP' 'duaCP' 'logout' 'cgi'",
+        "Lua 链: strings -a share/lua/5.1/teamf1lualib/duaCP.lua -> 'externalCpResult' 'hashValidate' 'parse_logoutInfo' 'logoutProcess' 'duaLogoutInfoGet' (与公开 PoC 反编译的 duaCP.logout 完全一致; hashValidate 失败不阻断后续 parse)",
+        "符号: arm-linux-gnueabi-objdump -T lib/lua/5.1/captivePortalLib.so -> '00001854 g DF .text 000001c4 Base lua_duaLogoutInfoGet'",
+        "注册表: arm-linux-gnueabi-readelf -r -> '0000b4c4 R_ARM_ABS32 00001854 lua_duaLogoutInfoGet'; .rodata:0x3350='duaLogoutInfoGet' (luaL_reg 表项 b4c0/b4c4, luaopen_captivePortalLib@0x152c 经 luaL_register 注册)",
+        "sink 反汇编 (analysis/lua_duaLogoutInfoGet.dis): 0x1858 'sub sp, sp, #948' 948B 栈帧; memset sp+12(512B)/sp+524(320B)/sp+894(50B)",
+        "sink 反汇编: 0x18ec 'mov r1, #1' + 0x18f4 'bl lua_tolstring@plt' (r1=1 -> Lua 参数 #1 = extCpResult, 无长度上限); 0x1900 'bl strcpy@plt' strcpy(sp+12[512B], extCpResult) — 无界",
+        "sink 反汇编: 解析循环 0x1984/0x1998 strcmp vs .rodata:0x3168 'clientMac' / 0x3174 'clientIp'; 0x1960 'bl strcpy@plt' strcpy(r9=sp+894[50B], clientMac值) — 无界; 0x19b8 strcpy(sp+844, clientIp值) — 无界",
+        "偏移吻合: 50B 缓冲(sp+894)到 saved lr = 948-894+32 = 86 字节, 与公开 exploit.py payload (86*'a' + pop{r0-r3,pc} + system) 精确一致",
+        "佐证: 公开 PoC github.com/delspon/CVE-2024-57376 (D-Link advisory SAP10415) 在同版本 3.17B901C_WW 上 pre-auth getshell (输出 'uid=0(root) gid=0(root)', 'cat /pfrm2.0/etc/dlink_version' -> 3.17B901C_WW)",
+        "无修补: 全函数无 strlen/strncpy 长度检查; ELF 构建日期 2022-06-10 (早于 2025-01 披露), strings 无 patch 痕迹"
+      ],
+      "reason": "版本门 pass (3.17B901C 为 advisory 含端上界); 完整可控链路 lighttpd→platform.cgi→bin/cgi(Kepler)→platform.lua(action=duaLogout→duaLogout.lua)→duaCP.logout→captivePortalLib.lua_duaLogoutInfoGet@0x1854, 函数内 3 处无界 strcpy (0x1900/0x1960/0x19b8) 拷贝攻击者可控的 externalCpResult 及其解析字段 clientMac/clientIp 进定长栈缓冲, 且公开 PoC 在完全相同版本 3.17B901C_WW 实际 pre-auth RCE — 漏洞确定存在于本固件"
+    }
+  ]
+}

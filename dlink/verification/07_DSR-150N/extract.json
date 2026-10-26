@@ -1,0 +1,36 @@
+{
+  "target_id": "07_DSR-150N",
+  "zip_sha256_verified": true,
+  "images": [
+    {"zip_entry": "dsr-150N_fw_reva_317b901C_all_en_20220620/1_DSR-150N_A1_FW2.11_WW", "sha256": "04a3419f460a45b9a8e6c789dd1dac2c8a1f1382b30fffe09e888b85d67f9cdd", "size_bytes": 25260032},
+    {"zip_entry": "dsr-150N_fw_reva_317b901C_all_en_20220620/2_DSR-150N_A1_FW2.11R_WW", "sha256": "9d3be8c9cd5bf2b6db7ae8f8bbf664bce56d90fe2dc16c82d6e2970afdea8bee", "size_bytes": 25260032},
+    {"zip_entry": "dsr-150N_fw_reva_317b901C_all_en_20220620/3_DSR-150N_A1_A2_A3_FW2.11_WW", "sha256": "80c056ac3b964bbe4c41b81fbad059d610d63b301e7fa03ad66ac2d0a314958f", "size_bytes": 25260032},
+    {"zip_entry": "dsr-150N_fw_reva_317b901C_all_en_20220620/A_DSR-150N_A2_FW2.11_WW", "sha256": "60c38a08825ec04cc13f6d7c63953129bca9c850e8b0786b12e6014511d2860b", "size_bytes": 25255936},
+    {"zip_entry": "dsr-150N_fw_reva_317b901C_all_en_20220620/B_DSR-150N_A2_FW3.11_WW", "sha256": "530ff6aaf90b58274a052c8b92144a7a0881e8c3451e535baf1fbbb58293ade9", "size_bytes": 26054656},
+    {"zip_entry": "dsr-150N_fw_reva_317b901C_all_en_20220620/C_DSR-150N_A2_A3_FW3.11_WW", "sha256": "3ae4eb7bf78940563c6a87996f67b1af357ef953be1c998fbb0a81694434f42f", "size_bytes": 26054656},
+    {"zip_entry": "dsr-150N_fw_reva_317b901C_all_en_20220620/X_DSR-150N_A1_A2_A3_A4_FW3.11B202E_WW", "sha256": "cdcef7282e8beb0059ab267ef69439f3202c20e2a543560adcf786ad7971c1c9", "size_bytes": 26058752},
+    {"zip_entry": "dsr-150N_fw_reva_317b901C_all_en_20220620/Z_DSR-150N_Ax_FW3.17B901C_WW", "sha256": "8de83f8f03d42347c07fe4514dff73943c893b6d0d2aa55b45f70e07d2810fef", "size_bytes": 24825856}
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/07_DSR-150N/extract/_Z_DSR-150N_Ax_FW3.17B901C_WW.extracted/squashfs-root",
+  "rootfs_file_count": 3198,
+  "arch": "arm",
+  "version_strings": [
+    {"where": "etc/dlink_version", "string": "3.17B901C_WW"},
+    {"where": "image Z_DSR-150N_Ax_FW3.17B901C_WW header @0x94", "string": "3.17B901C"},
+    {"where": "image Z_DSR-150N_Ax_FW3.17B901C_WW header @0x7c", "string": "DSR-150N_Ax_FW3.17B901C_WW"}
+  ],
+  "contradicting_version_strings": [
+    {"where": "image Z_DSR-150N_Ax_FW3.17B901C_WW header @0x1c", "string": "003.017B001"}
+  ],
+  "errors": [],
+  "notes": [
+    "ZIP 含 9 个固件镜像构成多步升级链（FW2.11/2.11R/3.11/3.11B202E/3.17B901C），另有 2 个升级说明 .txt（已排除）；仅解包与清单版本 3.17B901C 匹配的 Z_DSR-150N_Ax_FW3.17B901C_WW 作为 rootfs，其余镜像 SHA256 已逐个记录备查。",
+    "Z_ 镜像布局：0x200 ARM zImage（gzip 负载 @0x342D，内核 Linux 2.6.31.1-cavm1，Cavium ARM SoC，2022-06-10 构建）；0x500000 squashfs v4.0 little-endian lzma（主 rootfs，19576938 字节，3553 inodes）；0x17AC000 迷你 squashfs（312 字节，仅 pre.sh/post.sh 升级脚本）。",
+    "squashfs 超级块 inode 数 3553 与解包条目总数 3553 一致，解包完整。",
+    "内核 initramfs（cpio）另解出于 extract/_Z_.../_342D.extracted/_1A620.extracted/cpio-root，非主 rootfs。",
+    "Web 栈（供 CVE-2024-57376 验证参考）：lighttpd（etc/lighttpd.config）+ bin/cgi（6KB ARM ELF 分发器）+ var/www（520 项 HTML/sh，TeamF1 风格页面），配置默认值在 etc/teamf1.cfg.defaults.DSR-150N.ascii。",
+    "rootfs 扁平结构：bin/ etc/ lib/ var/ auth/ udev/ share/ pkgMgmt/，无 sbin/ 与 usr/。",
+    "矛盾项说明：镜像头 @0x1c 的 '003.017B001'（即 3.17B001）与 B901C 构建号不一致，但同一头部 @0x94 精确携带 '3.17B901C' 且 /etc/dlink_version='3.17B901C_WW'，判定为头部内部格式字段而非真实版本矛盾。",
+    "版本串 '3.17B901C' 在 rootfs 文本中仅命中 etc/dlink_version 一处；bin/ 前 20 个 ELF 的 strings 无版本串。"
+  ]
+}

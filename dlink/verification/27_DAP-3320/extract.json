@@ -1,0 +1,33 @@
+{
+  "target_id": "27_DAP-3320",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DAP-3320_v105rc019.bin",
+      "sha256": "13ed1276001a96373cb71bcb3f3801f48757d5c7ef7621004a6292ae4911ec96",
+      "size_bytes": 9531584
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/27_DAP-3320/rootfs",
+  "rootfs_file_count": 856,
+  "arch": "mips",
+  "version_strings": [
+    {"where": "etc/config/buildrev", "string": "v105rc019v02316s63174"},
+    {"where": "etc/config/buildver", "string": "1.05"},
+    {"where": "etc/config/buildno", "string": "g8h9"},
+    {"where": "etc/config/drvver", "string": "LSDK-WLAN-10.2.2"},
+    {"where": "image header @0x28 (pkg/DAP-3320_v105rc019.bin)", "string": "v105rc019v02316sdap3320"}
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "ZIP 内仅单一镜像 DAP-3320_v105rc019.bin，无说明文档/语言包",
+    "镜像布局：0x00 自定义明文头（model 'wapn29_dkbs_dap3320' @0x0、版本 'v105rc019v02316sdap3320' @0x28、buildno 'g8h9' @0x58、目标分区 '/dev/mtdblock/1' @0x70、16B 疑似校验块 @0x90）+ LZMA 内核 @0xA0（props 0x5D, usize 2867712）+ PackImg 分隔 @0xF00A0 + squashfs 4.0(lzma, 128K block) @0xF00C0（8544957B）；载荷未加密，binwalk -Me 一次解出，标准 unsquashfs 可直接解（无需 sasquatch）",
+    "binwalk 原始输出整理至 scratch/extract/（A0=kernel LZMA、A0.7z、F00C0.squashfs、squashfs-root*）；权威 rootfs 为 unsquashfs 重新解出的 scratch/rootfs（856 文件/62 目录/147 符号链接；仅 /dev/console 设备节点因非 root 未创建）",
+    "架构：MIPS 32-bit MSB (MIPS32 rel2)、uClibc (ld-uClibc.so.0)；WLAN 为 Atheros 系（lib/libar9300.so 3.8MB、nart.out/wlanconfig/athstats、drvver LSDK-WLAN-10.2.2）",
+    "Web 栈：www/ PHP 页面 UI（DAP 家族共享固件，含 dap2310/2330/2360/2553/2660/2690/3320 等各型号 display 页）+ sbin/httpd + sbin/atp（elbox 风格 sgi/xgi→atp 符号链接）；固件升级入口 www/sys_fw_update.php、www/tool_fw.php，版本页 www/version.txt（FW_VER 读 /etc/config/buildver）",
+    "CVE-2022-38873（篡改固件头上传致 DoS）关联：固件头为明文自定义头，升级流程见 sys_fw_update.php / tool_fw.php；etc/config 下 fw_sign=image_sign='wapn29_dkbs_dap3320' 疑为升级校验锚点",
+    "版本一致性：buildrev v105rc019 ↔ 清单 1-05rc019，buildver 1.05，buildno g8h9 与镜像头 @0x58 一致；ELF（前20个）内无版本串；无矛盾版本串。builddate 2016-08-17，清单文件名中 20170103 为发布日期，非矛盾",
+    "模型确认：etc/defnodes/S40brand.php set modelname 'DAP-3320'；devconf=/dev/mtdblock/2"
+  ]
+}

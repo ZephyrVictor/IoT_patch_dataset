@@ -1,0 +1,37 @@
+{
+  "target_id": "03_DIR-300",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DIR300B_FW205b03.bin",
+      "sha256": "3f4ef71d4391a64ec9cb9afae3c9ceec8b32b3e155700c46ab2ac096115aaa39",
+      "size_bytes": 3240064
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/03_DIR-300/rootfs",
+  "rootfs_file_count": 842,
+  "arch": "mipsel",
+  "version_strings": [
+    {"where": "etc/config/buildver", "string": "2.05"},
+    {"where": "etc/config/buildno", "string": "abna"},
+    {"where": "etc/config/builddate", "string": "Tue 23 Nov 2010"},
+    {"where": "etc/config/builddaytime", "string": "2010 11 23 10 45"},
+    {"where": "etc/config/image_sign", "string": "wrgn23_dlwbr_dir300b"},
+    {"where": "etc/defnodes/S40brand.php", "string": "set(\"/sys/modelname\", \"DIR-300\");"},
+    {"where": "etc/defnodes/S40brand.php", "string": "set(\"hardwareversion\", \"B1\"); /* D-Link require for DIR-300B */"},
+    {"where": "etc/defnodes/S40brand.php", "string": "set(\"externalversion\", \"2.05\");"},
+    {"where": "etc/defnodes/S11setnodes.php", "string": "set(\"firmwareversion\", $bver); /* $bver = /etc/config/buildver = 2.05 */"},
+    {"where": "www/DevInfo.php", "string": "Firmware External Version: V$version_no /* firmwareversion runtime node <- buildver 2.05 */"},
+    {"where": "usr/sbin/fresetd (strings)", "string": "/releases/svn.porsche/release.dir300b/elbox/comlib/sloop.c"}
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "manifest firmware_version '205b03_ALL_de_20101123' does not appear literally in rootfs; internal identity is version 2.05 (buildver/externalversion) with builddate 2010-11-23, exactly matching the '2.05b03' + '20101123' components of the manifest string; no contradicting version strings found",
+    "image layout: uImage LZMA kernel at 0x60 (Linux 2.6.21, MIPS, created 2010-11-23) + SquashFS 3.0 little-endian with non-standard D-Link magic 'shsq' and lzma compression at 0xE0080 (2319736 bytes, 1080 inodes); extracted via binwalk -Me (sasquatch backend)",
+    "binwalk rewrote 11 absolute symlinks to /dev/null; original targets recovered via 'sasquatch -lls' on the raw squashfs and all restored as equivalent relative links: tmp->var/tmp, etc/TZ->var/TZ, etc/hosts->var/hosts, etc/ppp->var/etc/ppp, etc/resolv.conf->var/etc/resolv.conf, dev/log->var/logs, www/syslog.rg->var/log/message, www/tsyslog.rg->var/log/tlogsmsg, www/auth_img->var/auth/auth_img, sbin/sgi->sbin/atp, sbin/xgi->sbin/atp, plus etc/init.d/S03config.sh->etc/scripts/config.sh, etc/init.d/S10system.sh->etc/scripts/system.sh, htdocs/upnp/{upnpdev.cgi,wfadev.cgi}->usr/sbin/upnpkits, htdocs/upnp/xmldoc->var/upnp (var/* are runtime tmpfs paths)",
+    "web UI lives in www/ (PHP pages incl. DevInfo.php, tools_firmware.php) with locales under www/locale/; htdocs/ contains only upnp; command.php was not present in this firmware's www/ (relevant for downstream CVE verification of CVE-2013-10069/CVE-2013-10048 which target command.php)",
+    "excluded non-firmware zip entries: DIR300B_langpack_de.bin (langpack), Bitte_zuerst_lesen_!!!_DIR-300RevB_Update.txt, changes.txt, WICHTIGE Hinweise zur Internet-Verbindung.pdf",
+    "arch determined from 3 largest ELFs (lib/modules/rt2860v2_ap.ko, usr/sbin/wps, bin/busybox): all ELF 32-bit LSB MIPS32 v1 -> mipsel; platform is Ralink RT3052 (etc/RT3052_AP_2T2R_V1_1.bin, rt2860v2_ap.ko)"
+  ]
+}

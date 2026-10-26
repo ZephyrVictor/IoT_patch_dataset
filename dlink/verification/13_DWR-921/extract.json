@@ -1,0 +1,35 @@
+{
+  "target_id": "13_DWR-921",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DWR-921_fw_revc3_1013010_ALL_multi_20191002/DWR-921_RevC3_Firmware1013010.bin",
+      "sha256": "a239c23edc6c95d4578a84056a5928dac910134c991068a781ed099773309b56",
+      "size_bytes": 9646833
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/13_DWR-921/rootfs",
+  "rootfs_file_count": 890,
+  "arch": "mipsel",
+  "version_strings": [
+    {
+      "where": "zip_entry:DWR-921_fw_revc3_1013010_ALL_multi_20191002/changes.txt",
+      "string": "Firmware: 1.01.3.010 / Date: 2019/10/02"
+    },
+    {
+      "where": "bin/busybox (build banner)",
+      "string": "BusyBox v1.3.2 (2019-10-01 11:47:59 CST)"
+    }
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "Image layout: DLK6 vendor header 'DLK6E2414009' (0x0-0x87) + LZMA kernel 2.6.36 @0x88 (uncompressed 3,819,364B) + main squashfs v4.0 LE gzip @0x13E291 (7,723,193B, 1392 inodes, created 2019-10-01) + web squashfs v4.0 LE gzip @0x89C2F1 (617,887B, 206 inodes, created 2019-10-02)",
+    "Dual-filesystem DWR layout: web fs is a separate squashfs (mtdblock4) mounted at runtime; rcS copies it to /tmp/www3 and /usr/www is a symlink -> /tmp/www3. Canonical rootfs = main fs with web fs contents merged into usr/www (684 + 206 entries = 890). Unmerged web fs preserved at scratch/13_DWR-921/rootfs_web; raw blobs at scratch/13_DWR-921/extract/_DWR-921_RevC3_Firmware1013010.bin.extracted/{13E291.squashfs,89C2F1.squashfs}",
+    "/etc -> ram/etc dangling symlink in image; real config at usr/etc and usr/mv2ram/etc (httpd.conf at usr/mv2ram/etc/httpd.conf); .uo config templates at usr/uo",
+    "ZERO in-rootfs hits for 1013010 / 1013010_ALL_multi_20191002 / 20191002 / 1.01.3 even with binary-aware grep: all 61 .htm/.js web files use 'Uy' (0x55 0x79) custom compression handled by httpd's embedded uvm template VM (decoder binary usr/bin/uvm); Uy string tables ARE plaintext-greppable via strings -a, still no version hit => firmware version is injected at runtime (matches /devinfo?area=version handler surface of CVE-2024-0717). Version evidence = changes.txt + filename + squashfs mtimes + BusyBox build date, all consistent with 1.01.3.010 / 2019-10-02",
+    "chkisg.htm does NOT exist in this firmware (61 htm files enumerated) - CVE-2018-10823 affects DWR-921 through v2.02 (Rev A/B line); this target is Rev C3 v1.01.x, different codebase generation. Relevant for downstream CVE triage",
+    "Web stack: usr/sbin/httpd (main server) + sbin/httpdld + usr/bin/uvm (Uy template VM). Notable www files for downstream: index.htm, loginpage.htm, sys_fwug.htm, network_shell.htm, hide_telnet.htm",
+    "Architecture from 3 largest ELFs (lib/rt2860v2_ap.ko, lib/libcrypto.so.1.0.0, lib/libdev.so) + bin/busybox: all ELF 32-bit LSB MIPS (MIPS32 rel2) => mipsel"
+  ]
+}

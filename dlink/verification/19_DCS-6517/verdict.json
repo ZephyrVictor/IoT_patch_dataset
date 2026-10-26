@@ -1,0 +1,38 @@
+{
+  "target_id": "19_DCS-6517",
+  "model": "DCS-6517 Rev. B1",
+  "firmware_version": "202b01_all_en_20210114 (DCS-6517B1_FW_v2.02.01.pkg, v2.02.01)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/19_DCS-6517/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2025-6931",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "insufficient entropy / hardcoded weak root password (CWE-330/CWE-331)",
+      "target_binary": "/bin/httpd (implementation in /lib/libnvram.so.1.0)",
+      "endpoint": "boot-time root password generation (httpd main init); credentials consumed by web auth do_auth/handle_auth_onlyMAC and busybox login/telnetd",
+      "parameter": "Network.Interface.I0.Active.MACAddress (device MAC, last 4 octets used)",
+      "handler_address": "libnvram.so.1.0:0x59d64 generate_pass_from_mac (httpd call site 0xa770, init fn 0xa71c, main 0x9988 -> bl at 0x9ab8)",
+      "sink": {
+        "func": "sprintf -> fopen(\"/etc/passwd\",\"w\") -> fputs (password derivation: crypt(crypt(mac8,\"AM\"),\"ab\") + literal hash abATsxpNxEp4Y)",
+        "call_site": "libnvram.so.1.0:0x59ec8 (sprintf fmt @0x77f9c), fopen @0x59edc"
+      },
+      "evidence": [
+        "readelf --dyn-syms rootfs/bin/httpd | grep generate_pass -> '24: 000095f8 0 FUNC GLOBAL DEFAULT UND generate_pass_fr[...]' (httpd imports it; PLT 0x95f8)",
+        "readelf --dyn-syms rootfs/lib/libnvram.so.1.0 -> '572: 00059d64 544 FUNC GLOBAL DEFAULT 8 generate_pass_fr[...]' (real implementation)",
+        "scripts/S20-startipcam:95 -> '/bin/httpd &' (httpd started at boot)",
+        "httpd _start@0x9e5c passes main=0x9988 to __uClibc_main; main+0x9ab8: 'bl a71c'; fn 0xa71c: nvram_safe_get(\"Network.PnP.Provider\"@0xdf84), strcasecmp(provider,\"Qlync\"@0xdfd4); not-Qlync branch 'a770: bl 95f8 <generate_pass_from_mac@plt>'",
+        "libnvram 0x59d64 disasm: '59d74: bl nvram_safe_get@plt' with key @0x758fc = \"Network.Interface.I0.Active.MACAddress\"",
+        "0x59d90: bl snprintf@plt (buf,20,\"%s\"@0x7d620,mac); 0x59d94-0x59de0 ldrb sp+34/35/37/38/40/41/43/44 -> strb [sp]..[sp+7] (extract 8 hex chars = last 4 MAC octets); 0x59e08-0x59e24 inlined tolower loop",
+        "0x59e34: bl crypt@plt (salt1 \"AM\"@0x77f2c); 0x59e88: bl crypt@plt (salt2 \"ab\"@0x77ed4) - double DES crypt, fixed salts, no rand/srand/time/gettimeofday anywhere in 0x59d64-0x59f84",
+        "0x59ea0/0x59eb0: bl nvram_set_no_modify_flag with keys @0x77f6c=\"user.username_from_mac\" and @0x77f84=\"user.password_from_mac\" (MAC-derived credentials stored and used by web auth)",
+        "objdump -s 0x77f90-0x78000 -> sprintf fmt @0x77f9c = 'root:abATsxpNxEp4Y:0:0:root:/:/bin/sh\\n%s:%s:0:0:root:/:/bin/sh\\n' (literal hardcoded root hash abATsxpNxEp4Y, identical on all units; second line: username=mac8, password=MAC-derived, both UID 0)",
+        "0x59edc: bl fopen@plt (\"/etc/passwd\"@0x77ef8, mode \"w\"@0x87c70); 0x59ef0: bl fputs@plt; failure path puts(\"Error ! Can't create file /etc/passwd\"@0x77f04); /etc/passwd is runtime symlink to /tmp/passwd per extract.json",
+        "host cross-check: python3 crypt.crypt('ipc3518Y2014','ab')='abEwqt3BtStVY' - companion g_F_n_GenPassForQlync@0x59cd0 writes 'qlync:crypt(constant,ab):0:0:root:...' (second hardcoded UID-0 account); literal root hash abATsxpNxEp4Y plaintext not recovered locally but hash is compile-time constant (vuldb title: 'hardcode weak password')",
+        "consumer side: libcgi.so.1.0 do_auth@0x85a14 (imported by httpd) calls handle_auth@plt and handle_auth_onlyMAC@plt; busybox login + /usr/sbin/telnetd (S20-startipcam, Telnetd.Enabled) reference /etc/passwd - MAC-derived and hardcoded root credentials are remotely usable",
+        "no patch indicators: no length/entropy checks, no random source, fallback constant \"ipcam_reserve_password\"@0x77f30 for crypt failure"
+      ],
+      "reason": "generate_pass_from_mac (impl libnvram.so.1.0:0x59d64, called unconditionally from /bin/httpd main init at 0xa770 when PnP provider is not Qlync) rewrites /etc/passwd at every boot with (1) a compile-time hardcoded root hash abATsxpNxEp4Y and (2) a second UID-0 account whose username and password are derived solely from the last 4 MAC bytes via deterministic double DES crypt with fixed salts AM/ab - zero/<=32-bit entropy exactly as CVE-2025-6931 (CWE-330) describes; firmware v2.02.01 is within vuldb's 'below or equal v2.02.01' range (PoC report targets this exact build), so version gate passes."
+    }
+  ]
+}

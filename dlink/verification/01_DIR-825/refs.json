@@ -1,0 +1,62 @@
+{
+  "target_id": "01_DIR-825",
+  "status": "ok",
+  "cves": [
+    {
+      "cve_id": "CVE-2025-10666",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-10666",
+      "record_source": "local_archive",
+      "refs": [
+        {
+          "url": "https://github.com/panda666-888/vuls/blob/main/d-link/dir-825/apply.cgi.md",
+          "tags": [
+            "Exploit",
+            "Third Party Advisory"
+          ]
+        },
+        {
+          "url": "https://github.com/panda666-888/vuls/blob/main/d-link/dir-825/apply.cgi.md#poc",
+          "tags": [
+            "Exploit",
+            "Third Party Advisory"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/?ctiid.324787",
+          "tags": [
+            "Permissions Required",
+            "VDB Entry",
+            "VDB-324787 | CTI Indicators (IOB, IOC, IOA)"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/?id.324787",
+          "tags": [
+            "Third Party Advisory",
+            "VDB Entry",
+            "VDB-324787 | D-Link DIR-825 apply.cgi sub_4106d4 buffer overflow"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/?submit.652047",
+          "tags": [
+            "Submit #652047 | D-Link DIR-825 Rev.B 2.10 Buffer Overflow",
+            "Third Party Advisory",
+            "VDB Entry"
+          ]
+        },
+        {
+          "url": "https://www.dlink.com/",
+          "tags": [
+            "Product"
+          ]
+        },
+        {
+          "url": "https://www.exploit-db.com/exploits/52469",
+          "tags": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "target_id": "10_DIR-100",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DIR-100_fw_revd_403b07_ALL_de_20120410/DIR100D1_FW403WWB07.bin",
+      "sha256": "ea7cc480f5f6738fc1da696b8bb8766c3b7a668101e5e34179b138708ce558ad",
+      "size_bytes": 466408
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/10_DIR-100/rootfs",
+  "rootfs_file_count": 76,
+  "arch": "mips",
+  "version_strings": [
+    {
+      "where": "ecos_image.bin@0xb0218 (CDB defaults rodata, near 'D-Link'/'DIR-100 Router')",
+      "string": "DIR-100 4.03"
+    },
+    {
+      "where": "ecos_image.bin@0xacc94 (CDB defaults block)",
+      "string": "4.03"
+    },
+    {
+      "where": "ecos_image.bin@0xbe07c (rodata near HTTP 401 message)",
+      "string": "4.03"
+    },
+    {
+      "where": "ecos_image.bin@0xbabe4 (standalone string right after 'Firmware Internal Version: v%s%s' HTML template)",
+      "string": "B07"
+    }
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "Device is NOT Linux: eCos 2.0 RTOS on big-endian MIPS (load addr 0x80000100; startup code mtc0/lui 0x8000; eCos exception tables). No /bin /etc /sbin; system+httpd+cgi handlers are statically linked into one monolithic image.",
+    "Container: single .bin = two AIH0 blobs. Blob1 @0x0 (data 282088 B, LZMA) = eCos system image, decompressed 1019312 B, staged at scratch/10_DIR-100/ecos_image.bin sha256=00b500199fcf707acf897719ee075938402513d23fdc3a1b0877df68ee055174. Blob2 @0x44E18 (data 184224 B) = WDK 2.0 filesystem.",
+    "WDK 2.0 is a custom web-root fs, custom-parsed by scratch/10_DIR-100/wdk_extract.py: header[u16 table_off=0x1A, u16 count, u16 data_off=0x5D4, 'WDK 2.0\\0'], entries [u8 flags][u8 entry_len][u16 stored_size BE][name\\0][pad], data = concatenated per-file LZMA-alone blobs in table order.",
+    "rootfs = web root only (htm/js/css/images). cli.cgi, cliget.cgi, upgrade.cgi, cdb.bin, log.txt, ngs.txt are runtime-generated stubs (stored_size=0, flags=0x0a) - CGI/PPTP/poe code paths for CVE-2013-7054/CVE-2013-7055 live in ecos_image.bin.",
+    "Version: image embeds external '4.03' + internal suffix 'B07' -> v4.03B07, consistent with manifest 403b07_ALL_de_20120410 and zip filename DIR100D1_FW403WWB07.bin. No contradicting strings in firmware (grep hits B04/B01/b05 in code/UUID are coincidental bytes).",
+    "Release note top entry (build c2ok 2012/02/29) says 'internal version is B05' - stale vs shipped image which embeds B07 (WDK fs timestamp 2012-04-06, zip dated 2012-04-10).",
+    "Version scan per pipeline: grep over rootfs (etc/www/htdocs n/a, whole web root scanned) = 0 hits (pages are templates filled at runtime); strings scan of ELFs n/a (no ELF files - eCos monolith scanned instead)."
+  ]
+}

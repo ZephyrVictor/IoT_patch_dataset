@@ -1,0 +1,69 @@
+{
+  "target_id": "10_DIR-100",
+  "model": "DIR-100 Rev. D (Hardware Revision D1)",
+  "firmware_version": "4.03B07 (403b07_ALL_de_20120410)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/10_DIR-100/rootfs",
+  "analysis_note": "Device runs eCos 2.0 RTOS (big-endian MIPS monolith, load 0x80000100); httpd+CLI+CDB are statically linked in scratch/10_DIR-100/ecos_image.bin. rootfs is only the WDK 2.0 web root. All code addresses below are vaddr = file_offset + 0x80000100 in ecos_image.bin.",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2013-7054",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "stored XSS (CWE-79): cli.cgi cmd parameter values stored verbatim and rendered unescaped in admin pages",
+      "target_binary": "ecos_image.bin (monolithic eCos image; handler chain httpd router 0x800947f4 -> CGI dispatcher 0x800a5ae4 -> CLI 'dhcps' handler 0x8002cb54 / '$' handler 0x80023d48)",
+      "endpoint": "/cli.cgi",
+      "parameter": "cmd (PoCs: 'dhcps set name=<script>alert(1)</script>&ip=192.168.0.199&mac=00:11:22:33:44:55&flg=1&exp=' and '$sched2=schen=1&time=0-60&day=5&desc=<script>alert(1)</script>&use=0&idx=2&;commit')",
+      "handler_address": "0x800a5ae4",
+      "sink": {
+        "func": "cdb set via 0x8002244c (dhcps-set) / 0x80022764 ($-assignment) storing raw string into $dhcps_lease_static<n> / $sched<n>, rendered client-side by bsc_lan.htm static_dhcp_gen_table() and tools_sch.htm puts()->document.write without HTML escaping",
+        "call_site": "0x8002c2ec (jal 0x8002244c with a2=raw rule string) and 0x80023e1c (jal 0x80022764); render sink: rootfs/bsc_lan.htm builds input tag value=' + Sname + ' and document.write's it, rootfs/tools_sch.htm '<td>'+translate_process_out(s[3])+'</td>'"
+      },
+      "evidence": [
+        "advisory(exploit-db 31425, Felix Richter 2013-09-19): 'Vulnerable Software: ftp://ftp.dlink.de/.../DIR-100_fw_revd_403b07_ALL_de_20120410.zip' — byte-identical zip name to target; PoC: curl 'http://192.168.1.104/cli.cgi?cmd=dhcps%20set%20name=<script>alert(1)</script>%26ip=...%26flg=1%26exp=' and '$sched2=...desc=<script>alert(1)</script>...'",
+        "version gate: extract.json version_strings 'DIR-100 4.03'@0xb0218, '4.03'@0xacc94/0xbe07c, 'B07'@0xbabe4 -> v4.03B07 == advisory version 4.03B07",
+        "WDK fs parse (python, blob2@0x44E18+48): 'cli.cgi' flags=0x0a stored=0 — bit 0x8 marks CGI-routed runtime stub; httpd router 0x800948fc: 'andi v0,v0,0x8; beqz v0,0x80094940' then 'jal 0x800a5ae4' at 0x80094914 -> CGI dispatcher invoked for flag-0x8 entries",
+        "dispatcher 0x800a5ae4: 'cli.cgi' str@0x800be6a8; url=='cli.cgi' -> jal 0x80094b2c (auth) at 0x800a5bd0, beqz v0,0x800a5ce8 on failure — cli.cgi IS gated by session check 0x80094b2c (matches advisory: XSS stored by an authenticated user / weak-auth session)",
+        "cmd split/execute loop: 0x800a5c04 strstr(cmd,';'), 0x800a5c1c sb zero,0(s0) truncation, 0x800a5c54 jal 0x80024488(0, segment) — segments executed via CLI command table @0x800f7ab8..0x800f7d78 (44 entries, 16B each: name/handler/help/flags)",
+        "command table entry [33] name='dhcps' handler=0x8002cb54; entry [5] name='$' handler=0x80023d48 flags=0x9 (0x8=prefix match)",
+        "dhcps 0x8002cb54: strcmp(argv[1],'set'@0x800b1c74)==0 && argc>=3 -> jal 0x8002c13c(argv[2]) at 0x8002cc70",
+        "dhcps-set 0x8002c13c: field strings 'name='@0x800b1b28,'ip='@0x800b1b30,'mac='@0x800b1b34,'flg='@0x800b1b3c parsed for validation only; at 0x8002c2e8 'move a2,s8' (a2 = ORIGINAL unmodified rule string) + 0x8002c2ec 'jal 0x8002244c' with a0=781 (CDB var-id of $dhcps_lease_static family), a1=slot -> raw rule stored, no escaping/filtering of name value",
+        "0x8002244c -> jal 0x80021684(a0,a1,a2,1): plain CDB string set wrapper; whole-image grep 'li rX,0x2a' = 0 hits (no mask/scrub anywhere)",
+        "'$' assignment path 0x80023db8: strchr(argv[0],'=') split, value -> 0x80023e1c 'jal 0x80022764' (cdb_set) stores '$sched2=schen=1&...&desc=<script>...' value verbatim; 0x80022764 does type/strlen check then 0x80022640 store, no content filtering",
+        "CDB vars exist: strings '$sched'@0xaf27c, '$dhcps_lease_static'@0xaf390; descriptor table word for $dhcps_lease_static @0x800f7f34",
+        "render sink (rootfs/bsc_lan.htm static_dhcp_gen_table): Sname=rule2var(cdbVal('$dhcps_lease_static'+i),\"name\"); str+='<input type=text ... value=\"'+Sname+'\">'; puts(str); — wdk.js puts()=document.write, no HTML escaping",
+        "render sink (rootfs/tools_sch.htm): str_name=translate_process_out(s[3]); str='<tr><td class=bc_tb width=30%>'+str_name+'</td>'; puts(str); common.js:164 'function translate_process_out(str){return decodeURIComponent(str);}' — URI-decode only, NOT an HTML escaper",
+        "var-family proof from shipped UI: bsc_lan.htm:314-315 'cdbSet('$dhcps_lease_static'+i,str); cmd.push('dhcps set '+str);' — page itself treats 'dhcps set' and $dhcps_lease_static<i> as the same storage; wdk.js cliCmd() sends 'cli.cgi?cmd='+cmd",
+        "companion-process check: none exist — eCos monolith contains httpd+CLI+CDB; WDK rootfs holds only static htm/js/css and stored=0 stubs, no separate CGI binaries or helper daemons to forward to"
+      ],
+      "reason": "cli.cgi dispatcher, dhcps-set and $-assignment handlers all store the cmd-supplied values verbatim into CDB ($dhcps_lease_static<n>/$sched<n>) with zero server-side escaping, and the shipped admin pages bsc_lan.htm/tools_sch.htm document.write those stored values into HTML with only decodeURIComponent (no escaping) — full store->render XSS path present in exactly the advisory's 4.03B07 build."
+    },
+    {
+      "cve_id": "CVE-2013-7055",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "information disclosure (CWE-200): unauthenticated retrieval of PPTP/PPPoE credentials via cliget.cgi",
+      "target_binary": "ecos_image.bin (monolithic eCos image; handler chain httpd router 0x800947f4 -> CGI dispatcher 0x800a5ae4 -> CLI exec 0x80024488 -> '$' handler 0x80023d48 -> CDB read -> HTTP response)",
+      "endpoint": "/cliget.cgi",
+      "parameter": "cmd (PoC values: $poe_user, $poe_pass, $pptp_user, $pptp_pass; advisory 3.3 also lists $ddns1, $log_mail_user, $log_mail_pwd)",
+      "handler_address": "0x800a5ae4",
+      "sink": {
+        "func": "CLI print 0x8001c28c('%s\\n', value) in '$' read path, delivered to HTTP response via per-thread output sink callback 0x80096eec (vsnprintf + append to httpd response buffer); the vulnerability is the auth skip when cmd contains no '='",
+        "call_site": "auth-skip branch 0x800a5cd0 'beqz v0,0x800a5bf8' (strchr(cmd,'=')==NULL bypasses jal 0x80094b2c at 0x800a5cd8); value print at 0x80023f1c 'jal 0x8001c28c' with fmt '%s\\n'@0x800b05a4 and buf from jal 0x80022a44 at 0x80023f08"
+      },
+      "evidence": [
+        "advisory(exploit-db 31425) section 3.3: 'curl http://192.168.0.1/cliget.cgi?cmd=$poe_pass' / '$pptp_pass' — 'No authentication is requred'; vulnerable software zip == target zip (403b07_ALL_de_20120410)",
+        "version gate: ecos_image.bin embeds 'DIR-100 4.03'@0xb0218 + internal suffix 'B07'@0xbabe4 -> v4.03B07 == advisory affected version",
+        "WDK fs parse: 'cliget.cgi' flags=0x0a stored=0 (bit 0x8 = CGI-routed); httpd router 0x80094908 checks entry flags & 0x8 then 0x80094914 'jal 0x800a5ae4' — unauthenticated cliget.cgi requests reach the CGI dispatcher",
+        "dispatcher 0x800a5ae4: 'cliget.cgi' str@0x800be6b4; 0x800a5bec 'beqz v0,0x800a5cc8' on strcmp(url,'cliget.cgi')==0; 0x800a5cc8 'jal 0x8001bf5c' with a1=61 ('=') = strchr(cmd,'='); 0x800a5cd0 'beqz v0,0x800a5bf8' — cmd WITHOUT '=' jumps straight to the command-execution loop, NEVER calling auth 0x80094b2c (auth is only called at 0x800a5cd8 on the '=' path for assignment commands)",
+        "cmd param: dispatcher 0x800a5b8c a1='cmd'@0x800be6b0 -> 0x80096ce4 = get_param (walks req+16 array of {name,value} pairs, strcmp match) — s2 = cmd value; segments split on ';' at 0x800a5c04-0x800a5c58 and executed via 0x80024488",
+        "CLI exec 0x80024488: tokenize(cmd,argv,' \\t',12) then walk command table 0x800f7ab8..0x800f7d78; entry[5] name='$' flags=0x9 (prefix match) handler=0x80023d48 -> indirect call 0x8002456c 'jalr v0'",
+        "'$' read path (no '='): 0x80023e84 -> 0x80021d40('$poe_pass') lookup, 0x80023f08 'jal 0x80022a44'(get string into buf), 0x80023f1c 'jal 0x8001c28c' with a0='%s\\n'@0x800b05a4, a1=buf — raw value printed",
+        "CDB credential vars present in monolith: strings '$poe_pass'@0xaf604, '$poe_user'@0xaf610, '$pptp_pass'@0xaf710, '$pptp_user'@0xaf72c (plus '$log_mail_user'@0xafbfc, '$log_mail_pwd'@0xafc0c, '$l2tp_pass'@0xafd14); descriptor-table pointers to the names at 0x800f807c ($poe_pass) and 0x800f8134 ($pptp_pass) — real string-typed CDB variables",
+        "output->HTTP response: httpd init 0x80093950 creates worker thread and at 0x800939e0 'jal 0x8001e490'(0x800f5e4c, thread, 0x80096eec) registers CLI print hook; 0x8001c28c reads hook *(0x800CF2CC); sink 0x80096eec = 0x8001c3f0(buf,255,fmt,va) then 0x80070174(arg->[4],buf,len) appends to httpd response buffer -> CLI '$poe_pass' output lands verbatim in the HTTP response body of the unauthenticated requester",
+        "no masking: whole-image grep for 'li rX,0x2a' (asterisk fill) = 0 hits; both '$' read branches (int 0x80022a1c / string 0x80022a44) converge on print '%s\\n' of the unmasked buffer",
+        "companion-process check: none — single eCos monolith (no separate cgi binaries/daemons); WDK rootfs cliget.cgi is a stored=0 stub, all logic is in ecos_image.bin which was analyzed directly"
+      ],
+      "reason": "In the exact 4.03B07 build, /cliget.cgi dispatches any cmd lacking '=' to the CLI executor without any authentication check, and the '$' read handler prints the raw CDB values $poe_pass/$pptp_pass (plus user/log_mail/ddns credentials) straight into the HTTP response — the unauthenticated PPTP/poe credential disclosure described by the advisory."
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "target_id": "22_DCS-935L",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DCS-935L_A1_FW_1.10.01_20161128_r4156.bin",
+      "sha256": "4e27027de45b7d9715cdcae454c1598c95489f41365fa758685e05ca35bf1b06",
+      "size_bytes": 7517476
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/22_DCS-935L/rootfs",
+  "rootfs_file_count": 765,
+  "arch": "mips",
+  "version_strings": [
+    {"where": "mydlink/version", "string": "VERSION=2.1.0-b45"},
+    {"where": "etc/config-cam.dat (strings)", "string": "DCS-935L"},
+    {"where": "etc/config-cam.dat (strings)", "string": "rtl8881ab"},
+    {"where": "etc/config-cam.dat (strings)", "string": "A1"},
+    {"where": "etc/config-cam.dat (strings)", "string": "6.0.0"},
+    {"where": "etc/config-cam.dat (strings)", "string": "1.9.7"},
+    {"where": "kernel image @0x2818 (LZMA, decompressed)", "string": "Linux version 2.6.30.9 (root@localhost.localdomain) (gcc version 4.4.5-1.5.5p4 (GCC) ) #68 Mon Nov 28 15:44:03 CST 2016"},
+    {"where": "etc/RTS5826.ini", "string": "version=0x58-0b41-a261"}
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "Image layout: custom 'cr6c' header+bootloader 0x0-0x2818 (MIPS BE, LZMA kernel decompressor), LZMA kernel @0x2818 (uncompressed 4675348 B), squashfs 4.0 lzma @0x161422 (6067203 B, 1423 inodes). binwalk -Me extracted directly; standard unsquashfs sufficient (no vendor squashfs mods).",
+    "ZERO literal hits for manifest firmware_version '110b01_all_en_20170301' or variants ('110b01', '1.10.01', '20170301', 'r4156') anywhere in rootfs - nipca pattern: firmware version lives in nvram/mdb config and is rendered at runtime via FirmwareVersion/MainVersion CGI params referenced by web/httpd. Version acceptance anchors: kernel build date 2016-11-28 == filename date 20161128; rootfs file mtimes 2016-11-28; config-cam.dat model 'DCS-935L' + HW 'A1'.",
+    "Kernel banner build host is 'root@localhost.localdomain' (no SDK path residue). ZIP folder date 20170301 is the web publish date, not build date - no contradiction with filename 20161128.",
+    "config-cam.dat strings '6.0.0' and '1.9.7' are component/schema versions (mydlinkCam config db), not firmware version; mydlink/version 'VERSION=2.1.0-b45' is the mydlink agent component version.",
+    "Platform: Realtek (etc/RTS5826.ini ISP fw version=0x58-0b41-a261, etc/Wireless/RTL8192CD.dat wifi driver, config-cam.dat platform 'rtl8881ab'). All 436 rootfs ELFs are MIPS 32-bit MSB (big-endian), MIPS-I, uClibc (/lib/ld-uClibc.so.0), stripped.",
+    "Oddity: squashfs superblock carries LE magic 'hsqs' while CPU/ELFs are big-endian MIPS; extraction verified correct via file(1) on all ELFs and readable interpreter strings.",
+    "Web stack: web/httpd (82 KB GoAhead-like server, MIPS BE) + web/cgi-bin/*.asp pages + CGI subdirs (greece/{rhea,zeus}, localrecording/setconf.cgi, config, hnap, common). CVE-2026-12174 target /web/cgi-bin/greece/rhea and CVE-2026-13545 target web/cgi-bin/localrecording/setconf.cgi both exist in this rootfs (existence recorded for downstream analysis only).",
+    "Two identical squashfs extraction copies appear under extract/ (squashfs-root and squashfs-root-0, same 765 files) because binwalk also found the sqsh signature inside the decompressed kernel image; canonical rootfs copied to scratch/22_DCS-935L/rootfs."
+  ]
+}

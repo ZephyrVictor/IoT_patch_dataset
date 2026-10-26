@@ -1,0 +1,52 @@
+{
+  "target_id": "05_DIR-865L",
+  "model": "DIR-865L Rev. A",
+  "firmware_version": "1.00b24 (100b24_ALL_en, build 2012-06-04)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/05_DIR-865L/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2018-6530",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "OS command injection (CWE-78)",
+      "target_binary": "/htdocs/cgibin (multi-entry CGI; runtime symlink /var/htdocs/upnp/<if>/soap.cgi -> /htdocs/cgibin)",
+      "endpoint": "/soap.cgi?service=<value> (POST, Content-Type: text/xml, SOAPAction header)",
+      "parameter": "service (REQUEST_URI query value after \"?service=\")",
+      "handler_address": "0x415bb4 (soapcgi_main)",
+      "sink": {"func": "system", "call_site": "0x416208 (jalr t9 @ 0x41620c), cmd buffer 0x444bb0 filled by sprintf @ 0x4161ec with fmt \"sh %s/%s_%d.sh > /dev/console &\" (0x4310d8), a3=service"},
+      "evidence": [
+        "readelf --dyn-syms -W cgibin | grep soapcgi_main -> '161: 00415bb4 1744 FUNC GLOBAL DEFAULT 10 soapcgi_main' (handler exported in stripped ELF)",
+        "grep -n soap.cgi etc/services/HTTP/httpsvcs.php -> '134: startcmd(\"ln -s /htdocs/cgibin \".$vdir.\"/soap.cgi\");' — soap.cgi entry created at runtime under /var/htdocs/upnp/<name>/, maps to cgibin soapcgi_main",
+        "strings -a cgibin | grep -E '_main$|\\.cgi$' -> soap.cgi + soapcgi_main present in entry dispatch table",
+        "objdump -d @0x415d48-0x415dc0: a0=getenv(\"REQUEST_URI\"); strchr(uri,'?') -> q; strncmp(q, \"?service=\", 9)==0; q+=9 (addiu v0,v0,9) — service = full attacker-controlled query value, no length check or filtering anywhere before sink",
+        "objdump -d @0x4161d8-0x4161f8: sprintf(0x444bb0, \"sh %s/%s_%d.sh > /dev/console &\" [str@0x4310d8], \"/var/run\", 72(s8)=service, getpid()) — service interpolated into shell command line",
+        "objdump -d @0x416208-0x416210: 'lw t9,-31928(gp) #GOT->system; jalr t9' with a0=0x444bb0 — direct system() sink; GOT slot resolved via old-style MIPS GOT (no relocations, slot 210 <-> dynsym[217] system, 0 content mismatches over 227 slots)",
+        "Reachability of sink past xmldbc_ephp_wb check: @0x416080 'bnez v0,41621c' — v0 is xmldbc_ephp_wb return; disassembly of xmldbc_ephp_wb@0x41e668 shows it connects unix socket /var/run/xmldb_sock (helper 0x41dc2c = socket/connect, 0x41dd80 = send) and returns 0 whenever IPC succeeds; ACTION.<service>.php file non-existence is handled daemon-side and does NOT block the system() path (only socket failure, ret=-1, does)",
+        "No authentication: soapcgi_main call graph (getenv/strncasecmp/strchr/strncmp/strlen/strcasecmp/getpid/sprintf/cgibin_parse_request/soap.lock open-lseek-lockf(0x4158b8)/xmldbc_ephp_wb/fopen/fprintf/fclose/system) contains no sess_validate/authentication_result call — unauthenticated remote command injection",
+        "No patch trace: service value never passed through any escaping/validation function (grep of annotated disasm between 0x415db4 and 0x4161ec shows direct pass-through as sprintf arg a3)"
+      ],
+      "reason": "soapcgi_main @0x415bb4 takes the unauthenticated '?service=' URL query value and interpolates it verbatim into \"sh /var/run/%s_%d.sh > /dev/console &\" passed to system() @0x416208; version 1.00b24 <= 1.08.B01 (last affected), no filtering or patch trace anywhere on the path."
+    },
+    {
+      "cve_id": "CVE-2018-6529",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "Reflected XSS (unescaped $_GET into JS string literal in <script>)",
+      "target_binary": "/htdocs/webinc/js/bsc_sms_inbox.php (interpreted by phpcgi engine in /htdocs/cgibin)",
+      "endpoint": "/bsc_sms_inbox.php?Treturn=<payload>",
+      "parameter": "Treturn ($_GET)",
+      "handler_address": "htdocs/webinc/js/bsc_sms_inbox.php:17 (script/interpreted, no binary address)",
+      "sink": {"func": "php echo (raw, no htmlspecialchars/addslashes) into <script> JS string", "call_site": "htdocs/webinc/js/bsc_sms_inbox.php:17"},
+      "evidence": [
+        "sed -n '17p' htdocs/webinc/js/bsc_sms_inbox.php -> 'var get_Treturn = '<?if($_GET[\"Treturn\"]==\"\") echo \"0\"; else echo $_GET[\"Treturn\"];?>';' — attacker-controlled $_GET[\"Treturn\"] echoed raw inside a JS string literal within <script>, no HTML/JS encoding",
+        "Render chain part 1: htdocs/web/bsc_sms_inbox.php lines 7-10 -> '$TEMP_MYNAME=\"bsc_sms_inbox\"; ... include \"/htdocs/webinc/templates.php\";'",
+        "Render chain part 2: grep -n webinc/js htdocs/webinc/templates.php -> '85: if (isfile(\"/htdocs/webinc/js/\".$TEMP_MYNAME.\".php\")==1) 86: dophp(\"load\", \"/htdocs/webinc/js/\".$TEMP_MYNAME.\".php\");' — vulnerable JS file loaded into the rendered page",
+        "PHP engine wiring: grep -n phpcgi etc/services/HTTP/httpcfg.php -> '41: /usr/sbin/phpcgi { php txt asp }'; ls -la usr/sbin/phpcgi -> 'phpcgi -> /htdocs/cgibin' (phpcgi_main handles .php)",
+        "$_GET support in engine: strings -a cgibin | grep _GET_ -> '_GET_'; objdump -d @0x407a40-0x407b28: callback builds $_GET var (sobj_add_string(obj,\"_GET_\"), name, '=', value); stock page htdocs/phplib/lang.php:44 also uses $_GET[\"language\"]",
+        "XSS reachability: payload Treturn=';alert(document.cookie);// (URL-encoded) closes the JS string and executes arbitrary JS in the router-origin page -> cookie read, matching the CVE description; also referenced internally by bsc_sms_inbox_rlt.php:10 '?Treturn=1' round-trip",
+        "Version gate: extract.json buildver=1.00 + buildrev=b24 -> 1.00b24, build date 2012-06-04, within advisory range 'DIR-865L ... 1.08.B01 and previous versions'; no contradicting version strings"
+      ],
+      "reason": "bsc_sms_inbox.php:17 echoes $_GET[\"Treturn\"] with no escaping into a <script> JS string literal, reachable via GET /bsc_sms_inbox.php (phpcgi engine confirmed to populate $_GET), fully rendered via templates.php; version 1.00b24 <= 1.08.B01. Note: CVE text says 'Treturn parameter to soap.cgi' but code shows the trigger endpoint is the web page /bsc_sms_inbox.php (the SOAP framing comes from the original researcher's context); existence is established by code evidence."
+    }
+  ]
+}

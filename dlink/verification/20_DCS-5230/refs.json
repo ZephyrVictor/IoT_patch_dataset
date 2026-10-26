@@ -1,0 +1,31 @@
+{
+  "target_id": "20_DCS-5230",
+  "status": "ok",
+  "cves": [
+    {
+      "cve_id": "CVE-2013-1603",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2013-1603",
+      "record_source": "cveawg",
+      "refs": [
+        {"url": "http://www.securityfocus.com/bid/59571", "tags": ["x_refsource_MISC"]},
+        {"url": "https://exchange.xforce.ibmcloud.com/vulnerabilities/83940", "tags": ["x_refsource_MISC"]},
+        {"url": "https://www.coresecurity.com/advisories/d-link-ip-cameras-multiple-vulnerabilities", "tags": ["x_refsource_MISC"]},
+        {"url": "https://vuldb.com/?id.8575", "tags": ["x_refsource_MISC"]},
+        {"url": "https://packetstormsecurity.com/files/cve/CVE-2013-1603", "tags": ["x_refsource_MISC"]}
+      ]
+    },
+    {
+      "cve_id": "CVE-2013-1602",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2013-1602",
+      "record_source": "cveawg",
+      "refs": [
+        {"url": "http://www.securityfocus.com/bid/59569", "tags": ["x_refsource_MISC"]},
+        {"url": "https://exchange.xforce.ibmcloud.com/vulnerabilities/83942", "tags": ["x_refsource_MISC"]},
+        {"url": "https://www.coresecurity.com/advisories/d-link-ip-cameras-multiple-vulnerabilities", "tags": ["x_refsource_MISC"]},
+        {"url": "https://packetstormsecurity.com/files/cve/CVE-2013-1602", "tags": ["x_refsource_MISC"]}
+      ]
+    }
+  ]
+}

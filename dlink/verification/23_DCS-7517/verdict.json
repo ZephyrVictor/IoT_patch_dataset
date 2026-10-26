@@ -1,0 +1,60 @@
+{
+  "target_id": "23_DCS-7517",
+  "model": "DCS-7517 Rev. B",
+  "firmware_version": "v2.01.00 (manifest 201_all_en_20190520, DCS-7517B1_FW_v2.01.00.pkg)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/23_DCS-7517/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2025-6931",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "insufficient entropy / predictable password generation (CWE-330/331); additionally hard-coded root password hash (CWE-259)",
+      "target_binary": "lib/libnvram.so.1.0:generate_pass_from_mac (bin/httpd imports it via PLT 0x95f8; lib/libcgi.so.1.0 imports it via PLT 0x20308)",
+      "endpoint": "N/A (not a per-request CGI handler): bin/httpd startup (scripts/S20-startipcam:95 '/bin/httpd &' -> main@0x9988 -> 0x9ab8 bl 0xa71c) and web-side lib/libcgi.so.1.0 handle_mac_restart@0x255f8",
+      "parameter": "nvram key Network.Interface.I0.Active.MACAddress (device MAC, publicly observable)",
+      "handler_address": "0x59c34 (libnvram.so.1.0)",
+      "sink": {
+        "func": "crypt -> crypt -> sprintf -> fopen(\"/etc/passwd\",\"w\") -> fputs",
+        "call_site": "0x59d04 crypt(mac8,\"AM\"); 0x59d58 crypt(hash1,\"ab\"); 0x59d98 sprintf(buf,\"root:abATsxpNxEp4Y:0:0:root:/:/bin/sh\\n%s:%s:0:0:root:/:/bin/sh\\n\",mac8,hash2); 0x59dac fopen(\"/etc/passwd\",\"w\")"
+      },
+      "evidence": [
+        "version gate: grep scripts/chk_version.sh -> 'nvram set Properties.Firmware.DLinkVersion v2.01.00'; advisory range 'D-Link DCS-7517 up to 2.02.0' (versionEndIncluding 2.02.0), 2.01.00 <= 2.02.0 -> in range; no contradicting version strings",
+        "readelf -sW lib/libnvram.so.1.0 -> '569: 00059c34 544 FUNC GLOBAL DEFAULT 8 generate_pass_from_mac'; readelf -sW bin/httpd -> '24: 000095f8 0 FUNC GLOBAL DEFAULT UND generate_pass_from_mac'",
+        "objdump -d libnvram 0x59c34: 0x59c44 bl nvram_safe_get(key@0x7543c) with strings -a -t x -> '7543c Network.Interface.I0.Active.MACAddress'; 0x59c60 bl snprintf(sp+28,20,\"%s\"@0x7d120,mac)",
+        "objdump -d libnvram 0x59c64-0x59cb0: loads buffer bytes at offsets 6,7,9,10,12,13,15,16 (last 4 MAC byte-pairs of 'XX:XX:XX:XX:XX:XX', separators skipped) -> 8-char string at sp[0..7]",
+        "case-fold loop 0x59cd8-0x59cf4: GOT 0x9455c=__ctype_b, 0x9456c=__ctype_toupper (readelf -rW), 'tst lr,#2'(_ISlower) -> 'ldrhne r3,[r2,r3]' replaces via __ctype_toupper -> mac8 = UPPERCASE hex of last 4 MAC bytes; fully deterministic",
+        "objdump -d libnvram: 0x59d04 bl crypt(r0=mac8@sp, r1@0x77a6c) with rodata dump -> 0x77a6c \"AM\"; 0x59d58 bl crypt(r1@0x77a14) with rodata -> 0x77a14 \"ab\"; both crypt salts are build-time constants, no rand/srand/time anywhere in function",
+        "objdump -d libnvram 0x59d70/0x59d80 bl nvram_set_no_modify_flag: rodata 0x77aac \"user.username_from_mac\"=mac8, 0x77ac4 \"user.password_from_mac\"=hash1",
+        "rodata dump libnvram 0x77adc: 'root:abATsxpNxEp4Y:0:0:root:/:/bin/sh\\n%s:%s:0:0:root:/:/bin/sh\\n' -> sprintf@0x59d98 writes literal hard-coded root hash line + MAC-derived UID-0 account, then 0x59dac fopen(\"/etc/passwd\"@0x77a38, \"w\"@0x8776c), 0x59dc0 fputs, 0x59dc8 fclose; rootfs 'etc/passwd -> /tmp/passwd' (runtime-generated)",
+        "caller chain httpd: objdump -d bin/httpd -> main(.text start 0x9988, openlog/cgi_lib_init/create_www) 0x9ab8 'bl a71c'; fn 0xa71c: 0x728 bl nvram_safe_get(literal 0xdebc -> file 0x5ebc 'Network.PnP.Provider', LOAD vaddr=off+0x8000), 0x764 bl strcasecmp(provider,\"Qlync\"@0x5f0c); !=0 falls through to 0xa770 'bl 95f8 <generate_pass_from_mac@plt>'",
+        "companion/web path: grep -rla generate_pass_from_mac rootfs -> bin/httpd, lib/libnvram.so.1.0, lib/libcgi.so.1.0; readelf -sW libcgi -> '967: 000255f8 560 FUNC GLOBAL DEFAULT 8 handle_mac_restart'; objdump -d libcgi 0x257c8 'bl 20308 <generate_pass_from_mac@plt>' (after system()+nvram_force_commit) -> web-side MAC-change flow also regenerates the same weak password",
+        "host reproduction (python3 crypt): crypt('A1B2C3D4','AM')='AMnJ9gwZknhuM' -> crypt('AMnJ9gwZknhuM','ab')='abX5Eu7I/R5sU' -> account password reproducible offline from public MAC; root hash 'abATsxpNxEp4Y' is a constant identical across units (does not match quick candidates; plaintext irrelevant to verdict)"
+      ],
+      "reason": "v2.01.00 falls in advisory range (<=2.02.0); generate_pass_from_mac@libnvram.so.1.0:0x59c34 derives the UID-0 account password exclusively from the public device MAC through a fixed-salt DES chain crypt(mac8,'AM')->crypt(.,'ab') with zero entropy source, and additionally writes a build-time constant root hash 'abATsxpNxEp4Y' into /etc/passwd; invoked at every boot from bin/httpd (main->0xa71c->0xa770) and on MAC change via libcgi handle_mac_restart (0x257c8)."
+    },
+    {
+      "cve_id": "CVE-2025-6932",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "use of hard-coded password (CWE-255/259)",
+      "target_binary": "lib/libnvram.so.1.0:g_F_n_GenPassForQlync (bin/httpd imports it via PLT 0x9808)",
+      "endpoint": "N/A (not a per-request CGI handler): bin/httpd startup when nvram Network.PnP.Provider == \"Qlync\"",
+      "parameter": "none — both crypt key and salt are compile-time rodata constants",
+      "handler_address": "0x59ba0 (libnvram.so.1.0)",
+      "sink": {
+        "func": "crypt -> sprintf -> fopen(\"/etc/passwd\",\"w\") -> fputs",
+        "call_site": "0x59bb8 crypt(\"ipc3518Y2014\",\"ab\"); 0x59bcc sprintf(buf,\"qlync:%s:0:0:root:/:/bin/sh\\n\",hash); 0x59be0 fopen(\"/etc/passwd\",\"w\")"
+      },
+      "evidence": [
+        "version gate: same build v2.01.00 <= advisory 'up to 2.02.0' -> in range",
+        "readelf -sW lib/libnvram.so.1.0 -> '498: 00059ba0 148 FUNC GLOBAL DEFAULT 8 g_F_n_GenPassForQlync'; readelf -sW bin/httpd -> '78: 00009808 0 FUNC GLOBAL DEFAULT UND g_F_n_GenPassForQlync'",
+        "objdump -d libnvram 0x59ba0: 0x59bb8 bl crypt@plt with r0=literal 0x77a04 and r1=literal 0x77a14; rodata dump -> 0x77a04 \"ipc3518Y2014\", 0x77a14 \"ab\" -> hash = crypt(\"ipc3518Y2014\",\"ab\"), 100% hard-coded key+salt, identical on every unit",
+        "objdump -d libnvram: 0x59bcc bl sprintf(sp, fmt@0x77a18, hash) with rodata -> 0x77a18 \"qlync:%s:0:0:root:/:/bin/sh\\n\" (qlync = UID 0 account); 0x59be0 bl fopen(\"/etc/passwd\"@0x77a38, \"w\"@0x8776c); 0x59bf4 bl fputs; 0x59bfc bl fclose; NULL-fp path puts(\"Error ! Can't create file /etc/passwd\"@0x77a44)",
+        "caller chain httpd: fn 0xa71c 0x764 bl strcasecmp(nvram_safe_get(\"Network.PnP.Provider\"), \"Qlync\"); 0x76c beq -> 0xa7f4 'bl 9808 <g_F_n_GenPassForQlync@plt>' (provider==\"Qlync\" branch)",
+        "host reproduction (python3 crypt): crypt('ipc3518Y2014','ab')='abEwqt3BtStVY' -> the qlync account's password is a single factory-wide constant, computable offline by anyone",
+        "rootfs-wide import scan: grep -rla 'g_F_n_GenPassForQlync' rootfs -> bin/httpd, lib/libnvram.so.1.0 only (definition); no other binary invokes it — companion check: sink lives inside libnvram itself, no filtered/intermediary variant exists"
+      ],
+      "reason": "v2.01.00 falls in advisory range (<=2.02.0); g_F_n_GenPassForQlync@libnvram.so.1.0:0x59ba0 builds the qlync UID-0 account password as crypt(\"ipc3518Y2014\",\"ab\") with both the key and the salt hard-coded in .rodata (0x77a04/0x77a14) — the same factory-wide password on every affected unit — and rewrites /etc/passwd with it when Network.PnP.Provider==\"Qlync\" (httpd 0xa71c -> 0xa7f4)."
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "target_id": "22_DCS-935L",
+  "model": "DCS-935L Rev. A",
+  "firmware_version": "110b01_all_en_20170301 (inner image DCS-935L_A1_FW_1.10.01_20161128_r4156.bin)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/22_DCS-935L/rootfs",
+  "arch": "mips (32-bit MSB, MIPS-I, uClibc, stripped)",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2026-13545",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "os command injection (CWE-77/78)",
+      "target_binary": "/web/cgi-bin/localrecording/setconf.cgi",
+      "endpoint": "/localrecording/setconf.cgi (httpd dispatches URI prefix \"/localrecording/\" via runcgi)",
+      "parameter": "UID (POST body parameter; also POST params enable/policy/day/period/overwrite/account/password)",
+      "handler_address": "0x400e40 (sub_400E40 — matches vuldb name exactly; param parse loop at 0x402a1c-0x402a44, call sites jal 0x400e40 @0x402e00 and 0x402f60)",
+      "sink": {
+        "func": "popen",
+        "call_site": "0x400f14 (GOT slot 0x414220 = dynsym[59]); command built by sprintf @0x400edc with format \"/mydlink/localrec -f 25 -n %d -v %s -o %d\" @0x403730"
+      },
+      "evidence": [
+        "file web/cgi-bin/localrecording/setconf.cgi -> ELF 32-bit MSB executable, MIPS, MIPS-I, dynamically linked, interpreter /lib/ld-uClibc.so.0, stripped",
+        "xxd -s 0x3d40 setconf.cgi -> 00003d40: 5549 4400 = \"UID\" — POST parameter name string at 0x403d40 (between \"period\" and \"overwrite\")",
+        "objdump 0x402a1c-0x402a44: lw a1,1144(sp) (=0x403d40 \"UID\"); strcmp(param_name,\"UID\"); on match value pointer stored: sw s0,1136(sp)",
+        "objdump 0x402c38-0x402c48: lw v0,1136(sp) (UID present?) -> jalr t9 = strcpy(sp+864, uid_value) [GOT 0x414224 = dynsym[60] strcpy, no validation]",
+        "objdump 0x402e00: jal 400e40 with delay-slot addiu a2,sp,864 (UID buffer as 2nd arg); same at 0x402f60",
+        "objdump 0x400edc: sprintf(cmd@sp+288, 0x403730 \"/mydlink/localrec -f 25 -n %d -v %s -o %d\", mydlinkNo, UID, overwrite) [GOT 0x414194 = dynsym[24] sprintf]",
+        "objdump 0x400f14: popen(cmd, \"r\") [GOT 0x414220 = dynsym[59] popen; a1=0x40376c=\"r\" from xxd 0000376c: 7200] — UID value embedded unquoted/unescaped into sh -c string",
+        "objdump 0x400f80-0x4012d4: after popen, fgets/strstr(\"\\\"result\\\" : \\\"Success\\\"\\\")/pclose loop confirms live popen usage (not dead code)",
+        "strings setconf.cgi -> secondary popen sink in loginRouter(0x401088): snprintf@0x40117c builds \"/bin/curl https://%s:%d/...--data-urlencode \\\"login_n=%s\\\"...\" then popen@0x401194 (account/password injectable via $()/backticks inside double quotes)",
+        "strings httpd -> \"/localrecording/\" URI prefix (runcgi dispatch); no metacharacter filtering anywhere on the UID->sprintf->popen path (only null-presence checks at 0x402cd8-0x402cf4)",
+        "Note: /mydlink/localrec does not exist in this rootfs (find rootfs -name '*localrec*' only matches cgi-bin/localrecording) — irrelevant to exploitability: /bin/sh -c parses the injected UID payload (e.g. \"x;cmd;\") before the missing binary fails"
+      ],
+      "reason": "POST parameter UID flows unvalidated via strcpy into sprintf(\"/mydlink/localrec -f 25 -n %d -v %s -o %d\") and then into popen() inside sub_400E40 at 0x400E40 (function address matches vuldb's sub_400E40 exactly); shell metacharacters in UID execute arbitrary commands. Firmware inner image filename is DCS-935L_A1_FW_1.10.01_20161128_r4156.bin = affected version 1.10.01 exactly."
+    },
+    {
+      "cve_id": "CVE-2026-12174",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "format string (CWE-134, NVD also lists CWE-119)",
+      "target_binary": "/web/cgi-bin/greece/rhea",
+      "endpoint": "/greece/rhea (httpd dispatches URI prefix \"/greece/\" via runcgi; commands selected by POST param act=set_sn/set_hwv)",
+      "parameter": "POST parameter values (\"sn\" and \"wv\") passed directly as snprintf format argument (vuldb's \"argument data\" = the POST data)",
+      "handler_address": "0x400d60 (invoked from main@0x401328 after cgiInit)",
+      "sink": {
+        "func": "snprintf",
+        "call_site": "0x400f58 (param \"sn\") and 0x400f98 (param \"wv\") — both GOT slot 0x411910 = dynsym[35] snprintf; called as snprintf(buf, 256, param_value) with no \"%s\" wrapper"
+      },
+      "evidence": [
+        "file web/cgi-bin/greece/rhea -> ELF 32-bit MSB executable, MIPS, MIPS-I, dynamically linked, stripped — exists at exact CVE-named path",
+        "objdump main@0x401328: 0x401340 jalr t9=cgiInit(1) [GOT 0x4118C4 = dynsym[16]]; 0x401354 jal 400d60 (handler); 0x401360 cgiFree",
+        "objdump 0x400e40: s0 = *(ctx+88) — cgiInit parameter array layout: array[0]=count, array[1+i]=name, array[129+i]=value (same layout as setconf.cgi)",
+        "objdump 0x400f2c-0x400f5c: strcmp(name, \"sn\"@0x401664) match -> 0x400f50 move a0,s6(sp+24 buf); 0x400f54 lw a2,4(s0)=param VALUE; 0x400f58 jalr t9=snprintf; delay li a1,256 -> snprintf(buf,256,value_as_FORMAT)",
+        "objdump 0x400f98: identical pattern for param \"wv\"@0x40166C -> snprintf(sp+280, 256, value_as_FORMAT)",
+        "grep -c '8f998090' rhea.asm -> 2 — exactly two snprintf calls in the whole binary, both take the raw POST parameter value as the format string (no \"%s\" indirection, no filtering)",
+        "xxd -s 0x165c rhea -> \"act\"@0x40165C, \"set_sn\"@0x401660, \"sn\"@0x401664, \"set_hwv\"@0x401668, \"wv\"@0x40166C — param/command name strings; fopen modes \"r\"/\"w\"@0x4016A0/0x4016A4",
+        "objdump 0x4011b4: CfgSetField(\"/mnt/flash/config/NETIPCAS.ini\", \"NIPCAS\", \"sn\", buf) [GOT 0x4118BC = dynsym[14]] — the format-processed buffer is then persisted, confirming live data flow through the vulnerable snprintf",
+        "strings httpd -> \"/greece/\" URI prefix confirms HTTP reachability of rhea/zeus CGI pair"
+      ],
+      "reason": "Both of the binary's only two snprintf calls (0x400f58, 0x400f98) pass the raw HTTP POST parameter value (\"sn\"/\"wv\") as the format argument — snprintf(buf,256,user_value) — a textbook externally-controlled format string in the exact file /web/cgi-bin/greece/rhea named by the CVE, reachable via httpd's /greece/ dispatch with act=set_sn/set_hwv. Firmware version 1.10.01 matches the affected version exactly."
+    }
+  ],
+  "version_gate_notes": "Advisory affected version '1.10.01' vs inner image DCS-935L_A1_FW_1.10.01_20161128_r4156.bin (from zip DCS-935L_fw_reva_110b01_all_en_20170301.zip; '110b01' is D-Link's web naming of 1.10B01=1.10.01). Exact match; kernel build date 2016-11-28 equals filename 20161128; config-cam.dat confirms model DCS-935L HW A1; no contradicting version strings (per extract.json). Gate: pass for both CVEs.",
+  "method_notes": "Static analysis only. Binaries stripped, MIPS BE with .MIPS.stubs lazy PLT; GOT slot for dynsym[j] = GOT_base + (j-3)*4 (DT_MIPS_GOTSYM=0xc, DT_MIPS_LOCAL_GOTNO=9) — used to resolve every gp-relative indirect call (jalr t9) to its libc/libweb symbol. cgiInit (libweb.so) parameter array: [0]=count, [1+i]=name, [129+i]=value, pointer at ctx+88. Disassembly dumps: scratch/22_DCS-935L/analysis/{setconf.cgi.asm, rhea.asm}."
+}

@@ -1,0 +1,58 @@
+{
+  "target_id": "02_DIR-600",
+  "status": "ok",
+  "cves": [
+    {
+      "cve_id": "CVE-2026-2163",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-2163",
+      "record_source": "local_archive",
+      "refs": [
+        {
+          "url": "https://github.com/LonTan0/CVE/blob/main/Remote%20Arbitrary%20Command%20Execution%20Vulnerability%20in%20ssdpcgi%20of%20D-Link%20DIR%E2%80%91600.md",
+          "tags": [
+            "Exploit",
+            "Third Party Advisory"
+          ]
+        },
+        {
+          "url": "https://github.com/LonTan0/CVE/blob/main/Remote%20Arbitrary%20Command%20Execution%20Vulnerability%20in%20ssdpcgi%20of%20D-Link%20DIR%E2%80%91600.md#poc",
+          "tags": [
+            "Exploit",
+            "Third Party Advisory"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/?ctiid.344865",
+          "tags": [
+            "Permissions Required",
+            "VDB Entry",
+            "VDB-344865 | CTI Indicators (IOB, IOC, TTP, IOA)"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/?id.344865",
+          "tags": [
+            "Third Party Advisory",
+            "VDB Entry",
+            "VDB-344865 | D-Link DIR-600 ssdp.cgi command injection"
+          ]
+        },
+        {
+          "url": "https://vuldb.com/?submit.751764",
+          "tags": [
+            "Submit #751764 | D-Link D-Link DIR-600 v2.15WWb02 Remote Arbitrary Command Execution",
+            "Third Party Advisory",
+            "VDB Entry"
+          ]
+        },
+        {
+          "url": "https://www.dlink.com/",
+          "tags": [
+            "Product"
+          ]
+        }
+      ]
+    }
+  ]
+}

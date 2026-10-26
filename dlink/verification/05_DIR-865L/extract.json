@@ -1,0 +1,33 @@
+{
+  "target_id": "05_DIR-865L",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DIR865LA1_FW100b24.bin",
+      "sha256": "7aee8ea969868732cf9c7ef13e7f0205cf06fd442b0fe9896eaf0faf7a54f927",
+      "size_bytes": 10338448
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/05_DIR-865L/rootfs",
+  "rootfs_file_count": 1969,
+  "arch": "mipsel",
+  "version_strings": [
+    {"where": "etc/config/buildver", "string": "1.00"},
+    {"where": "etc/config/buildrev", "string": "b24"},
+    {"where": "etc/config/buildno", "string": "c64e"},
+    {"where": "etc/config/builddate", "string": "Mon 04 Jun 2012"},
+    {"where": "etc/config/builddaytime", "string": "2012 06 04 14 43"},
+    {"where": "etc/defnodes/S40device.xml:6", "string": "<modelname>DIR-865L</modelname>"},
+    {"where": "etc/defnodes/defaultvalue.xml:6", "string": "<gw_name>DIR-865L</gw_name>"}
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "Version = buildver(1.00) + buildrev(b24) => 1.00b24, consistent with manifest firmware_version 100b24_ALL_en (zip entry DIR865LA1_FW100b24.bin). Web UI reads /etc/config/buildver+buildrev via htdocs/webinc/body/version.php.",
+    "Squashfs has vendor-modified magic 'shsq' (bytes 73 68 73 71); standard unsquashfs fails, extracted with sasquatch -d <scratch>/rootfs (1969 files, 140 dirs, 211 symlinks intact). binwalk's own squashfs-root under extract/ has outbound symlinks mangled to /dev/null - use rootfs_path instead for analysis.",
+    "Image layout: DLOB header at 0x0 (signature wrgac01_dlob.hans_dir865, boot partition dev=/dev/mtdblock/1), LZMA kernel at 0x70, PackImg delimiter at 0x160070, squashfs rootfs at 0x160090.",
+    "Realtek-style web stack: /htdocs/cgibin (ELF MIPS32) plus symlinked CGI endpoints in htdocs/web/ (hedwig.cgi, service.cgi, session.cgi, fwup.cgi, seama.cgi, captcha.cgi, authentication.cgi, webfa_authentication.cgi, ...); separate ELF /htdocs/fileaccess.cgi; soap.php under htdocs/upnpinc/. Relevant for CVE-2018-6530 (soap.cgi/cgibin soapcgi_main) and CVE-2018-6529 (htdocs/webinc/js/bsc_sms_inbox.php).",
+    "Build date 2012-06-04; manifest version 1.00b24 <= 1.08.B01 (last affected version in CVE descriptions).",
+    "sasquatch could not create 3 char devices under rootfs/dev (tty, urandom, zero) as non-root; harmless for static analysis."
+  ]
+}

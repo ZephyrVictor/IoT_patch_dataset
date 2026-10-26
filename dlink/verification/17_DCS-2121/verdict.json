@@ -1,0 +1,53 @@
+{
+  "target_id": "17_DCS-2121",
+  "model": "DCS-2121",
+  "firmware_version": "1-06_5731_all_en_20120522 (OEMVersion=1.06, build 5731)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/17_DCS-2121/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2013-1603",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "authentication-bypass (hard-coded credentials backdoor)",
+      "target_binary": "/sbin/rtspd",
+      "endpoint": "RTSP service, port 554 (tinydb [RTPServer] Port=0x022A) - DESCRIBE with Authorization: Basic header",
+      "parameter": "Authorization: Basic <base64> decoded value (magic suffix \":?*\")",
+      "handler_address": "0x113d4 (credential check, called from authenticationOK 0x11f14, from handleCmd_DESRIBE 0xe10c, auth call site 0xf67c)",
+      "sink": {
+        "func": "strncmp(decoded+len-3, \":?*\", 3) == 0 -> return 1 (authenticated, prints \"no pssswd\")",
+        "call_site": "0x11484-0x114b8"
+      },
+      "evidence": [
+        "strings -a -t x sbin/rtspd | 0x13060=':?*' 0x13064='no pssswd' 0x13070='  username %s' 0x13080='HTTPAccount' 0x13098='_AdminUser' 0x130a4='AdminPasswd' 0x130b0='found power user pass!' 0x130f0='Authorization: Basic ' 0x1310c='authenticationOK'",
+        "arm-linux-gnueabi-objdump -d rtspd: 0x11440 strncmp(decoded,\":\",1)==0 -> return 0; 0x11484 strncmp(decoded+len-3, 0x1b060=\":?*\", 3)==0 -> 0x114a8 printf(\"no pssswd\") -> 0x114b4 retval=1 -> return 1 (auth OK without any credential comparison)",
+        "arm-linux-gnueabi-objdump -d rtspd: 0x1176c strcmp(adminUser+\":\"+adminPasswd, decoded) 'found power user pass!'; loop 0x117b4-0x11b5c compares User<i>+\":\"+Password<i> from tinydb [HTTPAccount] (i<=_MaxUsers) - the \":?*\" path bypasses all of these",
+        "arm-linux-gnueabi-objdump -d rtspd: authenticationOK 0x11f14 -> 0x11fb8 bl 0x11e40 extracts 'Authorization: Basic ' token, 0x11ff8 bl 0x1757c standard base64 decode (alphabet@0x144fc), 0x12028 bl 0x113d0 credential check",
+        "python parse etc/db/dbinput.db: [RTPServer] Enable=1 Port=554 Authenticate=0; [HTTPAccount] _AdminUser=admin AdminPasswd='' _MaxUsers=20 - factory auth flag off and empty admin password additionally expose the stream",
+        "dispatcher 0xceb4 strcmp(cmd,\"DESCRIBE\") @0xcf18 -> bl 0xe10c handleCmd_DESRIBE: 0xea00 TinyDB([RTPServer]).getByte(\"Authenticate\")->[fp-65]; 0xf63c flag==0 -> beq 0xf78c skip auth; 0xf67c bl authenticationOK (only call site in binary)"
+      ],
+      "reason": "rtspd credential check contains hard-coded magic suffix \":?*\": any base64-decoded Authorization value ending in \":?*\" returns authenticated ('no pssswd' path) without comparing real credentials - a hard-coded backdoor credential granting RTSP video stream access; reachable on the DESCRIBE auth path whenever RTSP authentication is enabled (factory default Authenticate=0 means no auth at all, empty admin password by default)."
+    },
+    {
+      "cve_id": "CVE-2013-1602",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "authentication-bypass / information-disclosure (insufficient validation of RTSP session authentication)",
+      "target_binary": "/sbin/rtspd",
+      "endpoint": "RTSP service, port 554 - SETUP/PLAY/TEARDOWN with Session: header (no DESCRIBE/auth required)",
+      "parameter": "Session: header value (accepted unvalidated via atoi)",
+      "handler_address": "0xf8c8 (handleCmd_SETUP, session parse at 0xfa8c-0xfaf0)",
+      "sink": {
+        "func": "strstr(req,\"Session:\") + atoi(p+8) stored as session id with no validation; authenticationOK only invoked from DESCRIBE branch (single call site 0xf67c)",
+        "call_site": "0xfad4 (atoi of client-supplied Session id)"
+      },
+      "evidence": [
+        "grep 'bl.*11f1' rtspd.asm: authenticationOK(0x11f14) has exactly ONE call site 0xf67c, inside handleCmd_DESRIBE (0xe10c) reached only from dispatcher DESCRIBE branch (0xceb4 strcmp, 0xcf18 bl) - SETUP (0xf8c8), PLAY (0x100ec), TEARDOWN, PAUSE branches perform no authentication",
+        "arm-linux-gnueabi-objdump -d rtspd: 0xfa8c strstr(request, 0x1a97c=\"Session:\"); 0xfad4 bl atoi(p+8) -> str r3,[r4,#52] - client-supplied session id accepted without checking it was issued by the server",
+        "arm-linux-gnueabi-objdump -d rtspd: session id generator 0x112b0 = srand(gettimeofday sec+usec) @0x112fc, 1+(int)((double)rand()*100000.0/2147483648.0) (double consts @0x11374=100000.0, @0x1137C=2^31) -> session ids in [1,100000], guessable range",
+        "strings -a sbin/rtspd | grep -i cookie -> no output; strings -a sbin/rtpd | grep -iE 'cookie|auth' -> no output - no HTTP-cookie auth exists, CVE's 'authentication cookies for the RTSP session' is the RTSP Session identifier; web UI cookies are language-preference only (var/www/index.html)",
+        "companion process check (4.e): /sbin/rtpd IPCServer binds 127.0.0.1 (string @0x16570), Listener::handleStart(request->port) starts RTP streaming purely on rtspd's IPC command, rtpd contains zero authentication logic - streaming decision rests entirely on rtspd's unauthenticated SETUP/PLAY handling"
+      ],
+      "reason": "RTSP session authentication is only enforced on DESCRIBE (single auth call site); SETUP accepts any client-supplied Session: id via atoi without validation and PLAY/TEARDOWN never re-authenticate, and server-issued ids are only 1..100000 - a malicious user obtains unauthorized access to the video streams without valid credentials (factory default [RTPServer] Authenticate=0 disables even the DESCRIBE check)."
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "target_id": "15_DCS-5020L",
+  "model": "DCS-5020L Rev. A",
+  "firmware_version": "115b12_all_en_20180720 (1.15.12)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/15_DCS-5020L/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2019-10999",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "stack-based buffer overflow",
+      "target_binary": "bin/alphapd",
+      "endpoint": "/wireless.htm (apply form /setform/setSystemWireless)",
+      "parameter": "WEPEncryption",
+      "handler_address": "0x44438c",
+      "sink": {"func": "strcpy", "call_site": "0x444540"},
+      "evidence": [
+        "strings -a rootfs/bin/alphapd | grep WEPEncryption -> \"WEPEncryption\"@0x49a75c and \"APWEPEncryption\"@0x49a76c present in alphapd",
+        "grep -c WEPEncryption webcache/eng.unpack (wireless.htm) -> 34 occurrences; template posts to /setform/setSystemWireless with WEPEncryption parameter (sink parameter confirmed present)",
+        "objdump 0x4295b0 WriteWirelessVar: websGetVar(wp,\"WEPEncryption\",\"\") jalr@0x4296a0 (a1=\"WEPEncryption\"@0x429698), result stored 44(sp)@0x4296c4; nvram_bufset(0,\"WEPEncryption\",44sp) jalr@0x4299ec — plain websGetVar, no CheckVarRange length validation before nvram write",
+        "master apply fn (~0x4321xx): websTestVar(wp,\"ConfigSystemWireless\") gate 0x4322f0 (bnez s2 -> 0x432728) -> SystemWirelessChanged@0x432730 -> WriteWirelessVar GOT call@0x432748 executed unconditionally (CheckWirelessVar result s7@0x432270 not used to gate)",
+        "websParaDefine(\"RadioOfWEPEncryWay\",0x44438c) registration jalr@0x446394 in formDefineWireless; callback @0x44438c: s1=nvram_bufget(0,\"WEPEncryption\") jalr@0x4443d8; if s1 non-null and non-empty: strcmp(s1,\"3\")@0x4444ac-0x4444b4; if !=\"3\" (bnez v0@0x4444c0) -> strcpy(sp+24,s1)@0x444540 (a0=sp+24 in delay slot 0x444544)",
+        "buffer layout @0x44438c frame(72B): sp+24..sp+39 zeroed by 4x sw @0x4443e0-0x4443ec = 16-byte stack buffer; s0-s5@40..60, ra@64 -> strcpy overwrites saved regs + return address (no bounds check anywhere on path)",
+        "companion sinks same pattern: strcpy@0x445508 in RadioOfAPWEPEncryWay (APWEPEncryption, strcmp \"3\"@0x445474) and strcpy@0x44317c in WirelessSupport callback",
+        "eng.unpack html.htm: \"8 3 wireless.htm\" -> wireless.htm requires auth (level 3); overflow needs authenticated session exactly as advisory states (\"remotely authenticated attacker\")"
+      ],
+      "reason": "Request WEPEncryption value flows websGetVar(no validation)->nvram_bufset->RadioOfWEPEncryWay callback strcpy into 16-byte stack buffer at 0x444540 with no length check: handler, sink and full parameter-controlled path all confirmed in this 1.15.12 build (advisory range 'DCS-5020L 1.15.12 and below' upper bound)."
+    },
+    {
+      "cve_id": "CVE-2018-18441",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "information disclosure (missing authentication)",
+      "target_binary": "bin/alphapd",
+      "endpoint": "/common/info.cgi",
+      "parameter": "(none — unauthenticated GET)",
+      "handler_address": "0x417474",
+      "sink": {"func": "websParaRequest (template render of /etc_ro/web/cgi/common.cgi)", "call_site": "0x4411ec"},
+      "evidence": [
+        "rootfs/mydlink/mydlink-watch-dog.sh:24 INFO_CGI=\"/common/info.cgi\"; :110 health_check_httpd fetches http://127.0.0.1:<port>/common/info.cgi and restarts services unless HTTP 200; mydlink/httpd_check strings: request = \"GET %s HTTP/1.0\"+\"Host: %s\" only, NO Authorization header -> URL returns 200 to unauthenticated requests on this device",
+        "alphapd websReplacePathList @0x4e4cb8 (28 entries {3,external,internal}) contains {3,\"/common/info.cgi\",\"/cgi/common.cgi\"} at 0x4e4cd4; consumer websReplacePathInturnal @0x415ba4 walks list (0x415c14), webncasestrcmp match @0x415cbc rewrites wp->136 to /cgi/common.cgi",
+        "websEnableHtmlFile @0x416f10: fopen(\"/etc_ro/web/html.htm\",\"r\") via allocFmtString(\"%s%s\",\"/etc_ro/web\",WebAuthFile=\"/html.htm\"@0x4e4e7c); fgets loop @0x416fc0; format check line[1]=space/line[2]=digit/line[3]=space via __ctype_b @0x416fe0-0x417054; line[3]<-'/' then strtok(&line[3],\" \\r\\t\\n\")@0x417070 -> path \"/cgi/common.cgi\"; flag=line[2]-48 @0x417088; node{next,flag,name} prepended to WebAuthFileList @0x4170b8-0x4170f8",
+        "eng.lzma pack file html.htm content: \"8 0 cgi/common.cgi\" (flag 0) versus \"8 3 cgi/system.cgi\"/\"8 3 cgi/wireless.cgi\" (flag 3 = auth required) and \"1 1 home.htm\" (flag 1); pack materialized to /etc_ro/web by bin/htmlunpack (main@0x4025c4, case4 name/case5 fwrite handlers 0x402f44/0x40302c) invoked by alphapd switch_language@0x413dbc (\"htmlunpack %s %s\"@0x498bcc)",
+        "websCheckRealm @0x417474: s3=strdup(wp->136)@0x41752c; WebAuthFileList walk 0x417608-0x417638 webncasestrcmp(s3,node->name); on match -> 0x417964: s8=node->flag(4(s0))@0x41796c (default s8=3@0x417548); final gate 0x417918-0x41791c: slti a3,s8,2; bnez a3 -> 0x417578 return 0 (allow) -> required level 0 < 2 means NO authentication challenge",
+        "strings bin/alphapd form registrations: /cgi/system.cgi, /cgi/wireless.cgi, /cgi/network.cgi ... — /cgi/common.cgi NOT registered as form -> served as template file by websGetFileProcessor @0x440fdc: open(wp->148)+stat, S_IFREG branch -> write 200 header @0x4411bc then websParaRequest(wp,wp->148)@0x4411ec renders %%Para();%% substitutions",
+        "rootfs/etc_ro/web/cgi/common.cgi content = exact CVE-2018-18441 field list: model=%%ModelName();%%, brand=%%Company();%%, version=%%FirmwareVersion();%%, build=%%FirmwareVersion(2);%%, hw_version=%%HardwareVersion(2);%%, name=%%CameraName();%%, location=%%Location();%%, macaddr=%%MACAddress(2);%%, ipaddr/netmask/gateway=%%CurrentIP*/%%CurrentDefaultGateway();%%, wireless=%%WirelessSupport();%%, ptz, inputs, outputs, speaker, videoout"
+      ],
+      "reason": "Unauthenticated GET /common/info.cgi is URL-rewritten to /cgi/common.cgi whose per-page auth flag is 0 (< the level-2 websCheckRealm threshold), and the served template discloses model/version/build/hw_version/name/location/MAC/IP/gateway — full no-auth disclosure chain confirmed in this build (advisory covers DCS-5020L from 1.00 and above)."
+    }
+  ]
+}

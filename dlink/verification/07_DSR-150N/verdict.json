@@ -1,0 +1,36 @@
+{
+  "target_id": "07_DSR-150N",
+  "model": "DSR-150N Rev. A",
+  "firmware_version": "3.17B901C_WW",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/07_DSR-150N/extract/_Z_DSR-150N_Ax_FW3.17B901C_WW.extracted/squashfs-root",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2024-57376",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "stack buffer overflow (CWE-120), unauthenticated RCE",
+      "target_binary": "lib/lua/5.1/captivePortalLib.so (loaded in-process by bin/cgi via Kepler cgilua)",
+      "endpoint": "POST /platform.cgi (also /scgi-bin/platform.cgi, urlpath duaLogout.cgi) with action=duaLogout",
+      "parameter": "externalCpResult (JSON blob, e.g. {\"clientMac\":\"<overflow>\"}); overflow reaches sink via parsed clientMac/clientIp values",
+      "handler_address": "0x1854 (lua_duaLogoutInfoGet in lib/lua/5.1/captivePortalLib.so); Lua chain: var/www/platform.lua -> var/www/duaLogout.lua -> duaCP.logout -> duaCP.parse_logoutInfo -> captivePortalLib.duaLogoutInfoGet",
+      "sink": {
+        "func": "strcpy",
+        "call_site": "0x1900 (strcpy of whole extCpResult into 512B stack buf sp+0x0c); 0x1960 (strcpy of parsed clientMac value into 50B stack buf sp+0x37e, exploited sink: 0x37e+86=0x3d4=_saved LR); 0x19b8 (strcpy of parsed clientIp value into 50B stack buf sp+0x34c)",
+        "source": "lua_tolstring(L,1,NULL) @0x18f4 returns the extCpResult CGI parameter string; no length check before any strcpy"
+      },
+      "evidence": [
+        "version gate: cat rootfs/etc/dlink_version -> '3.17B901C_WW'; NVD CPE cpe:2.3:o:dlink:dsr-150n_firmware:* versionStartIncluding=3.13 versionEndIncluding=3.17B901C (inclusive, this build == upper bound); D-Link advisory SAP10415 lists DSR-150N affected, EOL, 'Fixed Firmware: Not Available'",
+        "endpoint exists: cat rootfs/var/www/platform.cgi -> sh script 'export PATH_INFO=\"/platform.lua\"; $KEPLER_INSTALL_PATH/bin/cgi'; etc/kepler.config THTTPD_CGI_PATTERN=\"platform.cgi|dbglog.cgi|quickvpn.cgi|upgradeStatus.cgi|upgradeStatusReboot.cgi\"",
+        "dispatch (unluac decompile of var/www/platform.lua bytecode): urlpath 'duaLogout.cgi' -> cgi.action='duaLogout'; cgi.action -> Page='duaLogout.lua' checked in pageList; login.revalidate(TeamF1Login,REMOTE_ADDR) failure branch lbl_2713 keeps DUA_LOGOUT_PAGE (duaLogout.lua) in pre-auth whitelist while all other pages forced to HOME_PAGE => handler reachable unauthenticated",
+        "handler (unluac decompile of var/www/duaLogout.lua): require \"teamf1lualib/duaCP\"; duaCP.logout(cgi) -- cgi = cgilua GET+POST params",
+        "data flow (unluac decompile of share/lua/5.1/teamf1lualib/duaCP.lua): duaCP.logout: L1=A0.externalCpResult; hashValidate(...) only sets reason='failure' on error; duaCP.parse_logoutInfo(extCpResult) called UNCONDITIONALLY; parse_logoutInfo: captivePortalLib.duaLogoutInfoGet(extCpResult) -- no length validation anywhere",
+        "sink (arm-linux-gnueabi-objdump -d lib/lua/5.1/captivePortalLib.so): 1854 <lua_duaLogoutInfoGet> sub sp,sp,#948; 18f4 bl lua_tolstring (arg idx 1 = extCpResult); 1900 bl strcpy with dst r4=sp+0x0c (memset'd 512 bytes at 18c4) -- unbounded copy of full attacker string; 190c bl duaServerResponsePrase (splits \"key\":\"value\" pairs); 1984 bl strcmp(key,\"clientMac\") / 1998 bl strcmp(key,\"clientIp\"); 1960 bl strcpy dst r9=sp+0x37e (50-byte buffer); 19b8 bl strcpy dst sp+0x34c (50-byte buffer)",
+        "key strings: objdump -s -j .rodata 0x3168 -> 'clientMac', 0x3174 -> 'clientIp' (the two strcmp match keys feeding the 0x1960/0x19b8 strcpy sinks)",
+        "offset cross-check with public exploit (github.com/DelspoN/CVE-2024-57376): payload = 86*'a' + ROP inside {\"clientMac\":\"...\"}; 0x37e (clientMac buf) + 86 (0x56) = 0x3d4 = saved LR slot of lua_duaLogoutInfoGet frame (push 9 regs + sub sp,#948) -- exact match, proving the 0x1960 strcpy is the exploited overflow",
+        "no patch trace: this 3.17B901C build (2022-06-10) is the final firmware (D-Link advisory: EOL/EOS, no fixed firmware ever released); no length checks added around any strcpy in lua_duaLogoutInfoGet",
+        "companion-process check (4.e): not applicable/none -- sink is in-process: bin/cgi (Kepler cgilua) dlopens /pfrm2.0/lib/lua/5.1/captivePortalLib.so directly (exploit memory map confirms the .so mapped inside the cgi process); parameters are not forwarded via IPC/pipe/shared file to any companion daemon before the sink"
+      ],
+      "reason": "Version gate passes exactly (3.17B901C = inclusive upper bound of affected range), and the full pre-auth chain exists in this rootfs: POST /platform.cgi action=duaLogout&externalCpResult=... -> platform.lua pre-auth whitelist (DUA_LOGOUT_PAGE) -> duaLogout.lua -> duaCP.logout -> parse_logoutInfo -> captivePortalLib.duaLogoutInfoGet @0x1854, where lua_tolstring'd attacker string is strcpy'd (0x1900/0x1960/0x19b8) into 512B/50B/50B stack buffers with no bounds check; 86-byte overflow offset to saved LR matches the public exploit."
+    }
+  ]
+}

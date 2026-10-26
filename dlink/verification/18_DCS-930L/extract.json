@@ -1,0 +1,40 @@
+{
+  "target_id": "18_DCS-930L",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "dcs930l_v111_b1.bin",
+      "sha256": "1db87d5a63a0579e42addc9a923956dd233c12666119c38edf87ded9dacad105",
+      "size_bytes": 4194304
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/18_DCS-930L/rootfs",
+  "rootfs_file_count": 227,
+  "arch": "mipsel",
+  "version_strings": [
+    {
+      "where": "pkg/dcs930l_v111_b1.bin @0x1A700 (bootloader region 0x0-0x50000)",
+      "string": "Signature: DCS-930            L     Release 1.11 (2011-05-31)"
+    },
+    {
+      "where": "kernel uImage @0x50000 / vmlinux banner (extract/.../_50040.*/50040)",
+      "string": "Linux version 2.6.21 (andy@ipcam-linux.alphanetworks.com) (gcc version 3.4.2) #2970 Fri Mar 14 14:59:24 CST 2014"
+    },
+    {
+      "where": "mydlink/version",
+      "string": "VERSION=2.0.17-b60"
+    }
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "Flash image layout (4MB): 0x0-0x50000 bootloader = U-Boot 1.1.3 with recovery HTML pages (~0x1E680) and its own signature stamp; 0x50000 uImage header 'Linux Kernel Image' lzma, MIPS, load 0x80000000 entry 0x803B8000, image size 3716898B, created 2014-03-14 06:59:34 UTC (= 14:59:24 CST, matches kernel banner); rest is 0xFF padding.",
+    "Extraction chain: binwalk -Me -> outer LZMA @0x50040 decompresses to 6471744B vmlinux (raw, 'data'); inside vmlinux @0x3DA000 an LZMA stream (props 0x5D, dict 1MB, declared uncompressed 7821312B) = compressed cpio initramfs; cpio-root extracted at extract/_dcs930l_v111_b1.bin.extracted/_50040.extracted/_3DA000.extracted/cpio-root. scratch/18_DCS-930L/rootfs is a symlink to it. Kernel-embedded initramfs, no squashfs — same layout as 15_DCS-5020L (nipca platform).",
+    "rootfs counts: 227 regular files + 87 symlinks + 43 dirs; only 1 dangling symlink (bin/mount.ntfs-3g). etc/ holds only fstab (runtime /etc comes from etc_ro); usr/bin/* are busybox symlinks.",
+    "NO literal firmware-version string exists anywhere: '1-11b1'/'111b1'/'v111_b1'/'1.11b1'/'20140519' have zero hits in rootfs text areas, ELF strings (bin,sbin,usr/bin), and the raw 4MB image. Version is stored in nvram and rendered at runtime via %%FirmwareVersion();%% / %%ReleaseDate();%% templates in etc_ro/web/cgi/{common.cgi,isystem.cgi,isysdevice.cgi}. Same pattern as DCS-5020L.",
+    "Bootloader signature 'Release 1.11 (2011-05-31)' is the bootloader's own release stamp (2011 build, numerically consistent 1.11 = base of manifest 1-11b1); kernel build 2014-03-14 precedes ZIP packaging date 2014-05-19 by ~2 months (same build-vs-package gap as DCS-5020L). mydlink VERSION=2.0.17-b60 is the mydlink agent component version. None of these contradict the manifest version; no SDK build-path version artifacts found in ELFs (unlike DCS-5020L).",
+    "Platform: Alphanetworks OEM nipca ipcam on Ralink RT3050 (etc_ro/wlan/RT3050_AP_1T1R_V1_0.bin, kernel 2.6.21, uClibc 0.9.28, openssl 0.9.8). Builder andy@ipcam-linux.alphanetworks.com. arch=mipsel confirmed by lib/libuClibc-0.9.28.so, lib/libcrypto.so.0.9.8 (1449660B), bin/busybox (451108B) — top-3 largest ELFs, all ELF 32-bit LSB MIPS.",
+    "CVE-relevant artifacts: bin/alphapd (358264B, mipsel, stripped, GoAhead-based) = web server for both CVEs. CVE-2019-10999: etc_ro/web/wireless.htm exists with 14 WEPEncryption occurrences (sink parameter present; differs from DCS-5020L where htm pages were LZMA-packed — here 70 .htm files sit unpacked in etc_ro/web/, plus language packs etc_ro/web/pack/{eng,cht,frh,grm,itn,kor,sph,twn}.lzma, bin/htmlunpack available). CVE-2016-11021: alphapd contains '/setform/setSystemCommand', 'setSystemCommand', 'ConfigSystemCommand' strings (form handler URL exists; not referenced by any htm).",
+    "Auth model anchor for downstream: etc_ro/web/html.htm per-page auth flag table present (e.g. '1 3 html.htm', '1 1 home.htm'); etc_ro/web/cgi/ has 25 cgi files incl. wireless.cgi, iwireless.cgi, common.cgi; Java applet api/ (aplug*.class); mydlink/httpd_check + mydlink-watch-dog.sh (mentions 930L/932L shared build)."
+  ]
+}

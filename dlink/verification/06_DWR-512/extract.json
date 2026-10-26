@@ -1,0 +1,49 @@
+{
+  "target_id": "06_DWR-512",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DWR-512_fw_revb_200b03_ALL_en_20140318/20140318_D-Link_DWR-512B1_V2.00b03.bin",
+      "sha256": "3104b88e86e76b308457f5a796966ed8e1459502c9e57efebfc1dedce0d331a8",
+      "size_bytes": 4441050,
+      "layout": {
+        "header": "DLK6E2412001 (D-Link custom, 0x00-0x87)",
+        "kernel": "LZMA @0x88, 3199568 bytes uncompressed, Linux 2.6.21",
+        "rootfs_squashfs": "squashfs v3.0 LE non-standard signature @0x10537A, 3102994 bytes, 1277 inodes, created 2014-03-18 05:58:41",
+        "web_squashfs": "squashfs v3.0 LE non-standard signature @0x3FB3DA, 264294 bytes, 169 inodes, created 2014-03-18 06:22:24 ('D section', mounted at /usr/www per /usr/etc/rcS: 'mount -t squashfs /dev/mtdblock4 /usr/www')"
+      }
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/06_DWR-512/rootfs",
+  "rootfs_file_count": 583,
+  "arch": "mipsel",
+  "version_strings": [
+    {
+      "where": "pkg/DWR-512_fw_revb_200b03_ALL_en_20140318/changes.txt (ZIP 文档，rootfs 外)",
+      "string": "Version 2.00b03 (出现两次，含 'This is first FW version')"
+    },
+    {
+      "where": "usr/www/version.htm (D-Link 'Uy' 压缩模板，运行时填充)",
+      "string": "Firmware External Version: <br />Firmware Internal Version: <br />Date:"
+    },
+    {
+      "where": "usr/www/func.js",
+      "string": "MN='DWR-512';"
+    },
+    {
+      "where": "extract/_20140318_D-Link_DWR-512B1_V2.00b03.bin.extracted/88 (kernel)",
+      "string": "Linux version 2.6.21 (jay@dot7) (gcc version 3.4.2) #4 Wed Mar 12 16:29:51 CST 2014"
+    }
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "rootfs 内（etc/www/htdocs、ELF strings）未发现 '200b03'/'2.00b03'/'20140318' 明文版本串；版本仅由 ZIP 文件名、changes.txt('Version 2.00b03') 与镜像构建日期(2014-03-18)佐证，三者一致无矛盾。",
+    "rootfs 为 binwalk(sasquatch) 解出的主 squashfs(rootfs_path)，usr/www 原为空目录，已将第二个 squashfs(web 'D section', mtdblock4) 的 168 个文件合并进 usr/www 以还原运行时布局；binwalk 原始输出保留在 scratch/06_DWR-512/extract/_20140318_D-Link_DWR-512B1_V2.00b03.bin.extracted/squashfs-root{,-0}。",
+    "/etc -> ram/etc 是 tmpfs 符号链接，真实配置模板在 /usr/mv2ram/etc（含 passwd、httpd.conf 等），/usr/uo 存放 .uo 配置模板。",
+    "usr/www 下 .htm/.js 均为 'Uy'(0x55 0x79) 魔数自定义压缩，grep 不可见内容，后续分析需解压或看 httpd 解压逻辑；func.js 可见 MN='DWR-512'。",
+    "CVE 相关事实：usr/www/chkisg.htm 存在（CVE-2018-10823 注入点）；www 目录中不存在名为 EXCU_SHELL 的文件（CVE-2018-19300 所述），该 URI 可能在 httpd 内部处理，需下游在 rootfs/usr/sbin 或 bin 下核实 web 服务二进制。",
+    "ZIP 内其余条目（2 个 PDF、howto txt、changes.txt）为文档/说明，非固件镜像。",
+    "架构：228 个 ELF 全部为 32-bit LSB MIPS (mipsel)，busybox/snmpd 为 MIPS-II，内核模块 rt2860v2_ap.ko 为 MIPS32 rel2，uClibc (interpreter /lib/ld-uClibc.so.0)。"
+  ]
+}

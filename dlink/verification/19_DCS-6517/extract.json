@@ -1,0 +1,43 @@
+{
+  "target_id": "19_DCS-6517",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DCS-6517B1_FW_v2.02.01.pkg",
+      "sha256": "ec6b0574c93a78e21120d647b1d7a48ff33c72509d8ae9b773923649ece3af3f",
+      "size_bytes": 14269404
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/19_DCS-6517/rootfs",
+  "rootfs_file_count": 788,
+  "arch": "arm",
+  "version_strings": [
+    {
+      "where": "scripts/chk_version.sh:24",
+      "string": "nvram set Properties.Firmware.DLinkVersion v2.02.01"
+    },
+    {
+      "where": "scripts/chk_version.sh:1",
+      "string": "version=7.I.0.31618 (Properties.Firmware.SoftwareVersion, OEM platform version)"
+    },
+    {
+      "where": "scripts/chk_version.sh:2",
+      "string": "date=\"Thu, 02 Jul 2020 16:49:14 GMT\" (build date, matches tar member mtime 2020-07-02 and gzip mtime)"
+    },
+    {
+      "where": "zip entry filename",
+      "string": "DCS-6517B1_FW_v2.02.01.pkg"
+    }
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "Container: custom 44-byte header, magic '1QS8' (0x31515338), image name 'rootfs+backup' at 0x0C, payload is gzip at 0x2C wrapping a GNU tar (32,870,400 B, padded, 1173 entries). binwalk -Me extracts it directly.",
+    "Manifest version 202b01_all_en_20210114 == pkg v2.02.01 (encoding 2.02 B1-rev 01); zip name 'DCS-6517B1' confirms Rev. B1 hardware. Consistent with CVE-2025-6931 'up to 2.02.0x' range.",
+    "No literal version/model strings inside bin/ ELFs, etc/ or www/ — version lives in nvram (set by scripts/chk_version.sh at boot, rendered via config.cgi in www/newui/asp/view.asp and www/asp/factory_mac.asp).",
+    "Web stack: bin/spook (289,788 B ARM ELF) is the main HTTP server for www/*.asp pages using <% nvram_get(...) %> templates; lib/libcgi.so.1.0 (1.4 MB) likely backs config.cgi handlers; bin/https and bin/avhttpspook also present.",
+    "CVE-2025-6931 target confirmed present: bin/httpd (28,948 B, ARM EABI5, dynamically linked, uClibc, stripped) contains the string 'generate_pass_from_mac'.",
+    "788 regular files + 327 symlinks. Runtime symlinks (etc/passwd->/tmp/passwd, etc/hostname->/tmp/hostname, etc/certs->/mnt/mtd/certs, etc/ppp->/tmp/ppp) were neutralized to /dev/null by binwalk security; real files are generated at runtime — /etc/passwd is produced by the httpd password-generation path under analysis.",
+    "Arch detail: ARM 32-bit LSB EABI5, uClibc (interpreter /lib/ld-uClibc.so.0). Largest ELFs: bin/openssl, bin/snmpd, bin/aenc, bin/spook. ActiveX.Version 6,1,0,267, ActiveX.ID DLINKCamV_H264 (www/classes/DLINKCamV_H264.cab)."
+  ]
+}

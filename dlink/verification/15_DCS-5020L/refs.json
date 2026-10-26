@@ -1,0 +1,34 @@
+{
+  "target_id": "15_DCS-5020L",
+  "status": "ok",
+  "cves": [
+    {
+      "cve_id": "CVE-2019-10999",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2019-10999",
+      "record_source": "cveawg",
+      "refs": [
+        {
+          "url": "https://github.com/fuzzywalls/CVE-2019-10999",
+          "tags": ["x_refsource_MISC"]
+        },
+        {
+          "url": "https://supportannouncement.us.dlink.com/announcement/publication.aspx?name=SAP10131",
+          "tags": ["x_refsource_CONFIRM"]
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2018-18441",
+      "verdict": "confirmed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2018-18441",
+      "record_source": "cveawg",
+      "refs": [
+        {
+          "url": "https://dojo.bullguard.com/dojo-by-bullguard/blog/i-got-my-eyeon-you-security-vulnerabilities-in-baby-monitor/",
+          "tags": ["x_refsource_MISC"]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "target_id": "28_DAP-3662",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DAP3662-firmware-v101EU-rc023.bin",
+      "sha256": "5c6ca145dcf1b9adb5e6629bcd5d959624b141bf557764161f4c369d6af046e2",
+      "size_bytes": 8990912
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/28_DAP-3662/rootfs",
+  "rootfs_file_count": 1092,
+  "arch": "mips",
+  "version_strings": [
+    {"where": "etc/config/buildver", "string": "1.01"},
+    {"where": "etc/config/buildrev", "string": "v101EUrc023v2316s53869"},
+    {"where": "etc/config/buildno", "string": "f6tf"},
+    {"where": "etc/config/builddate", "string": "15:42:20 06/29/2015"},
+    {"where": "etc/config/drvver", "string": "LSDK-WLAN-10.2.2"},
+    {"where": "etc/defnodes/S40brand.php", "string": "DAP-3662 (web/sysname, modelname)"},
+    {"where": "www/dap3662_display_new.php", "string": "DAP-3662 (hostname)"},
+    {"where": "sbin/ebtables (ELF build path)", "string": "/release2/src.bak/release.dap3662/runtime/v101_EU/rootfs/..."},
+    {"where": "sbin/athstats (ELF build path)", "string": "/release2/src.bak/release.dap3662/runtime/v101_EU/progs.priv/madwifi_LSDK-WLAN-10.x/..."}
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "清单 firmware_version 为空；以 ZIP 名/固件头为准的版本为 v101EUrc023 (1.01 EU, rc023)，rootfs 内所有版本串均一致，无矛盾",
+    "镜像格式（DAP 家族 wapn 明文头）: @0x0 'wapac11_dkbs_dap3662', @0x28 'v101EUrc023v2316dap3662', @0x58 buildno 'f6tf', @0x70 '/dev/mtdblock/1', @0xA0 LZMA 内核(props 0x5D, 解压后 2859520B), PackImg 分隔 @0xF00A0, 标准 squashfs 4.0 lzma @0xF00C0 (8007443B, 生成时间 2015-06-29)，unsquashfs 直解无需 sasquatch",
+    "架构 MIPS 32-bit BE (MIPS32 rel2), uClibc, Atheros WLAN (libar9300.so, LSDK-WLAN-10.2.2)",
+    "Web 栈: www/ 为 DAP 家族共享 PHP UI + sbin/httpd + sbin/atp (sgi/xgi -> /sbin/atp)，与 DAP-3320 同构",
+    "CVE 组件实证存在: www/session_login.php (CVE-2024-28436), www/sys_fw_update.php (CVE-2022-38873)",
+    "rootfs 另含 143 个符号链接（sbin/sgi, sbin/xgi, htdocs/upnp/*.cgi 等）；unsquashfs 因非 root 未能创建 /dev/console 字符设备，其余完整",
+    "binwalk 输出在 scratch/28_DAP-3662/pkg/_DAP3662-firmware-v101EU-rc023.bin.extracted/（符号链接已被 sanitize 为 /dev/null），权威副本为 unsquashfs 重解的 scratch/28_DAP-3662/rootfs"
+  ]
+}

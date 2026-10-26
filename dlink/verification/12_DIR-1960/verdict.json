@@ -1,0 +1,39 @@
+{
+  "target_id": "12_DIR-1960",
+  "model": "DIR-1960 Rev. A",
+  "firmware_version": "1.11B03 (111b03_ALL_multi_20200516, image version block: V1.11B03 / A1)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/12_DIR-1960/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2022-31414",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "stack buffer overflow via unbounded strcat (DoS via crafted HTTP request)",
+      "target_binary": "/bin/prog.cgi (== /bin/prog-cgi, md5 98553e2948c6395b76ce07ee23de5502; MIPS32 rel2 LSB, stripped)",
+      "endpoint": "/HNAP1/ (HTTP POST, SOAP action \"SetWanSettings\")",
+      "parameter": "/SetWanSettings/ConfigDNS/Primary and /SetWanSettings/ConfigDNS/Secondary",
+      "handler_address": "0x470758",
+      "sink": {
+        "func": "strcat",
+        "call_site": "0x46ebc8",
+        "containing_function": "sub_46eaf8 (static helper called by SetWanSettings handler)",
+        "destination": "stack buffer sp+28, 64 bytes (memset(sp+28,0,0x40) @0x46eb38)",
+        "source": "webGetVarString(\"/SetWanSettings/ConfigDNS/Secondary\") stored at 136(sp) of handler, passed as 6th arg (caller 20(sp) -> callee 220(sp))",
+        "precondition": "sprintf(sp+28,\"%s \",Primary) @0x46eba4 already unbounded into same 64-byte buffer"
+      },
+      "evidence": [
+        "file rootfs/bin/prog-cgi -> ELF 32-bit LSB executable, MIPS, MIPS32 rel2, dynamically linked, stripped, 1032612 B; md5(prog.cgi)==md5(prog-cgi)=98553e2948c6395b76ce07ee23de5502",
+        "grep HNAP1 etc_ro/lighttpd/lighttpd.conf -> \"/HNAP1/\" => \"bin-path\" => \"/etc_ro/lighttpd/www/web/HNAP1/prog.fcgi\"; prog.fcgi is symlink -> /bin/prog.cgi (same file analyzed)",
+        "websFormDefine anchor extraction (159 actions resolved): action 'SetWanSettings' -> handler 0x470758",
+        "prog-cgi.asm 0x470a9c: lw v0,-32176(gp) # -> webGetVarString(local GOT slot144=0x41be3c); a1=0x4df5fc '/SetWanSettings/ConfigDNS/Primary'; 0x470ab4: sw v0,132(sp)",
+        "prog-cgi.asm 0x470ae8: lw v0,-32176(gp) # -> webGetVarString; a1=0x4df638 '/SetWanSettings/ConfigDNS/Secondary'; 0x470b00: sw v0,136(sp)",
+        "prog-cgi.asm 0x4713c8: sw v1,16(sp) [v1=*(132sp)=Primary]; 0x4713d4: sw v1,20(sp) [v1=*(136sp)=Secondary]; 0x471400: jal 46eaf8 (a0=sp+1452) — 5th/6th args are the two user-controlled DNS strings",
+        "sub_46eaf8 0x46eb7c: beqz v0,46ec0c (skip if Primary==NULL); 0x46eba4: sprintf(sp+28, '%s '@0x4df420, arg4=Primary) — no length bound; buffer is 64-byte stack slot memset at 0x46eb38",
+        "SINK prog-cgi.asm 0x46ebc8: lw v0,-30772(gp) # -> strcat (GOT slot495=0x503b5c, value 0x4cb4a0=strcat PLT); a0=sp+28 (64-byte stack buffer), a1=*(220sp)=Secondary — no length check anywhere in handler or callee (only NULL checks; tbsCheckIp runs after the concatenation)",
+        "identical pattern in same handler: 0x4718cc jal 46f504 (a2=*(132sp)=Primary, a3=*(136sp)=Secondary); inside sub_46f504: sprintf@0x46f5dc into sp+284 then strcat(sp+284, *(468sp)) @0x46f600",
+        "extract.json version_strings: decrypted image 96B version block @0x40 'DIR-1960', @0x80 'V1.11B03', @0x90 'A1' — hardware revision A1 and 1.11-series firmware match advisory 'DIR-1960_A1_1.11' (no fixed version bound in advisory)"
+      ],
+      "reason": "HNAP SetWanSettings handler (0x470758) feeds the user-controlled request fields ConfigDNS/Primary and ConfigDNS/Secondary (obtained via webGetVarString) as args 5/6 into static helper sub_46eaf8, which sprintf's Primary into a 64-byte stack buffer and then strcat's Secondary onto it with no bounds check (strcat@0x46ebc8) — a crafted HTTP request with an oversized DNS field smashes the CGI process stack, matching the CVE-2022-31414 description of a buffer overflow via strcat in prog.cgi causing DoS; no patch/length-filter trace found (sibling helpers sub_46f504 et al. share the same pattern)."
+    }
+  ]
+}

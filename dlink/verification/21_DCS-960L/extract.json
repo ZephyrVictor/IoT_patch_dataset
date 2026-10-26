@@ -1,0 +1,55 @@
+{
+  "target_id": "21_DCS-960L",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DCS-960L_A1_FW_1.09.02_20191128_r4588.bin",
+      "sha256": "af2caba5f9308c1530c2eb1abdd194bf22fd5391856271b276f4f997234764c9",
+      "size_bytes": 10183972
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/21_DCS-960L/rootfs",
+  "rootfs_file_count": 886,
+  "arch": "mips",
+  "version_strings": [
+    {
+      "where": "kernel (LZMA@0x2818 decompressed, file extract/.../2818)",
+      "string": "Linux version 2.6.30.9 (root@localhost.localdomain) (gcc version 4.4.5-1.5.5p4 (GCC) ) #77 Thu Nov 28 17:11:32 CST 2019"
+    },
+    {
+      "where": "etc/config-cam.dat (mdb device config)",
+      "string": "DCS-960L"
+    },
+    {
+      "where": "etc/config-cam.dat (mdb device config)",
+      "string": "rtl8881ab"
+    }
+  ],
+  "contradicting_version_strings": [
+    {
+      "where": "etc/config-cam.dat @offset 569",
+      "string": "1.9.7"
+    },
+    {
+      "where": "etc/config-cam.dat @offset 545",
+      "string": "6.0.0"
+    },
+    {
+      "where": "mydlink/version",
+      "string": "VERSION=2.2.0-b70a"
+    }
+  ],
+  "errors": [],
+  "notes": [
+    "ZIP sha256 verified (35cecfb35369c1b21211ed836b30dffe7388f9599dc3db7910e664aae00d0c37); single firmware image inside, no langpack/docs.",
+    "Image layout: custom 'cr6c' header (0x20 B, BE fields: load_addr=0x80500000, 0x00020000, kernel_region_size=0x0017e402) + MIPS BE boot stub + LZMA kernel @0x2818 (props 0x5D, uncompr 5230012 B, Linux 2.6.30.9) + SquashFS v4.0 LE/lzma @0x17E422 (8614674 B, 1569 inodes, blocksz 131072).",
+    "Quirk: squashfs metadata is LITTLE-endian while all rootfs ELFs are MIPS 32-bit MSB (big-endian). unsquashfs (native lzma support) extracts cleanly; binwalk -Me also produced two identical copies (squashfs-root, squashfs-root-0).",
+    "rootfs = unsquashfs extraction at <scratch>/rootfs: 886 regular files + 280 symlinks preserved (binwalk copy had replaced external symlinks with /dev/null; prefer the unsquashfs copy for analysis).",
+    "Direct grep for firmware-version variants (109b02 / 1.09.02 / 1.09 / r4588 / all_multi / 20200110 / 20191128) across etc/ web/ server/ mydlink/ and strings of ELFs in bin/ sbin/ usr/bin/: ZERO static hits. Firmware version is NOT stored as a plain string; web UI builds it at runtime from device-info CGI (see web/cgi-bin/wizsetup5.asp: splitVersion[0] + '.0' + splitVersion[1]).",
+    "Kernel build timestamp 'Thu Nov 28 17:11:32 CST 2019' matches the image filename date 20191128 (bin name: DCS-960L_A1_FW_1.09.02_20191128_r4588.bin); folder-level 20200110 is the release-listing date, not a contradiction.",
+    "Contradicting/ambiguous entries caveat: '1.9.7' and '6.0.0' in etc/config-cam.dat are per-field mdb config values (likely SDK/web-UI component versions), and mydlink VERSION=2.2.0-b70a is the mydlink agent version — none is a firmware-version claim, listed for downstream awareness.",
+    "Platform: Realtek rtl8881ab ipcam SoC (per etc/config-cam.dat), uClibc, busybox.",
+    "CVE-relevant context (no analysis performed): HNAP service lives in web/httpd (MIPS BE ELF, stripped; strings contain '/hnap/hnap_service'); HNAP config in etc/hnap_module_profile.ini, etc/hnap_notifier.xml, etc/hnap_policy.xml. Classic asp UI under web/cgi-bin/, media server server/camsvr, mydlink agent in mydlink/.",
+    "Did not execute any firmware binaries; only static unpack tools (binwalk/unsquashfs/strings/file) on scratch copies."
+  ]
+}

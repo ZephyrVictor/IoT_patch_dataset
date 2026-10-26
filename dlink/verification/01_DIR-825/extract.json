@@ -1,0 +1,54 @@
+{
+  "target_id": "01_DIR-825",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DIR-825_fw_revb_209EUb09_03_ALL_multi_20130114/DIR825B1_FW209EUB09_03.bin",
+      "sha256": "149c878232fa94b3d3063be251c70c366165a153167a66f94140a3067108ce0c",
+      "size_bytes": 6291482
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/01_DIR-825/rootfs",
+  "rootfs_file_count": 518,
+  "arch": "mips",
+  "version_strings": [
+    {
+      "where": "sbin/rc (ELF strings)",
+      "string": "[Initialized, firmware version: %s ]",
+      "note": "版本号运行时从 nvram 读取并写日志, rootfs 内无版本字面量"
+    },
+    {
+      "where": "www/index.asp:24 (及约120个其他 .asp 页面)",
+      "string": "<% CmoGetStatus(\"version\"); %>",
+      "note": "Web UI 固件版本显示为运行时注入占位符"
+    },
+    {
+      "where": "bin/busybox (ELF strings)",
+      "string": "BusyBox v1.01 (2013.01.14-08:44+0000)",
+      "note": "构建日期 2013.01.14 与清单版本 20130114 吻合"
+    },
+    {
+      "where": "etc/nvram.default:1,743,748",
+      "string": "hostname=DIR-825 / model_number=DIR-825 / pure_device_name=D-Link Systems DIR-825"
+    },
+    {
+      "where": "etc/nvram.default:845",
+      "string": "check_fw_url=wrpd.dlink.com.tw,/router/firmware/query.asp?model=DIR-825_Bx_EU"
+    },
+    {
+      "where": "ZIP 内 changes.txt (包内文档, 非 rootfs)",
+      "string": "Firmware Version: ver2.09EUb09Beta03 / Firmware: v2.09EU Build: 09beta03 / Hardware: B1 / Date: 14, Jan, 2013",
+      "note": "与清单版本 209EUb09_03_ALL_multi_20130114 完全对应 (209EU b09 beta03, 20130114)"
+    }
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "镜像布局: 0x0 uImage 头 (Linux Kernel Image, MIPS, lzma, 2013-01-14 08:45:17) + 0x100000 Squashfs 3.0 big-endian (4201051 bytes, 714 inodes, created 2013-01-14 08:45:43), binwalk -Me 一次成功",
+    "内核 Linux 2.6.15 (Atheros LSDK-7.2.0.156, 平台 AR7161); uClibc 0.9.28; BusyBox v1.01",
+    "清单版本字面量 (209EUb09/209EUB09/20130114/2.09) 在 rootfs 与原始镜像中均不存在: 版本号由固件升级过程写入 nvram/artblock 后运行时注入 (bin/artblock_cmd 管理 hw_version 等键)",
+    "rootfs 含 sbin/httpd (542992 字节, rootfs 最大可执行文件) 与 www/*.asp Web UI; etc/nvram.default 含 countdown_time=40 默认值 (CVE-2025-10666 涉及参数)",
+    "binwalk 将 2 个指向外部的符号链接 (lib/modules/2.6.15--LSDK-7.2.0.156/build, source -> /home/AthSDK/...) 重定向为 /dev/null",
+    "rootfs 518 个常规文件 + 84 个符号链接; ZIP 内其余条目为说明文档 (Bitte_zuerst_lesen txt, changes.txt, PDF) 已排除"
+  ]
+}

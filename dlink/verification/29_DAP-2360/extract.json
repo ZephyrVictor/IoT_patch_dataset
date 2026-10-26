@@ -1,0 +1,33 @@
+{
+  "target_id": "29_DAP-2360",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DAP2360b-firmware-v203-rc026.bin",
+      "sha256": "1d7752574ebfcca48fd48b8d65138b6eb0521801cb450992ce1be09da902ffb0",
+      "size_bytes": 8675520
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/29_DAP-2360/rootfs",
+  "rootfs_file_count": 1251,
+  "arch": "mips",
+  "version_strings": [
+    {"where": "etc/config/buildver", "string": "2.03"},
+    {"where": "etc/config/buildrev", "string": "v203rc026v2316s52766"},
+    {"where": "image_header@0x28 (wapn25_dkbs_dap2360b header)", "string": "v203rc026v2316s5dap2360b"},
+    {"where": "etc/config/drvver", "string": "LSDK-WLAN-10.2.85"},
+    {"where": "usr/sbin/snmpd", "string": "D-Link DAP-2360"},
+    {"where": "sbin/ebtables et al. (ELF build paths)", "string": "/release2/src.bak/release.dap2360b/v203rc025/rootfs/..."}
+  ],
+  "contradicting_version_strings": [
+    {"where": "sbin/ebtables, sbin/ebtables-restore, sbin/ebtables-save, sbin/athstats, sbin/athstatsclr, sbin/wlanconfig, sbin/80211stats, sbin/radartool, usr/sbin/snmpd (embedded build paths)", "string": "/release2/src.bak/release.dap2360b/v203rc025/...", "note": "source tree path stamped v203rc025 while release is rc026 (build-tree naming lag, not a device version claim)"}
+  ],
+  "errors": [],
+  "notes": [
+    "Layout: 0x000-0x0FF wapn25_dkbs_dap2360b plaintext header (flash target /dev/mtdblock/1, embeds v203rc026v2316s5dap2360b, buildno f3ck); 0x100 kernel partition (LZMA, binwalk A0=2851328B, Linux 2.6.31, MIPS entry 0x080863E4, initramfs cpio at 0x2B8000 rel); 0xF00A0 '--PaCkImGs--' marker; 0xF00C0 squashfs4 LE lzma to EOF (7688682B, 1252 inodes, built 2015-03-12 12:57:24)",
+    "rootfs inventory: 1043 regular files + 66 dirs + 142 symlinks = 1251 entries; unsquashfs could not create char device dev/console (non-root), all symlinks intact in canonical rootfs",
+    "binwalk extract kept at scratch/29_DAP-2360/extract/ for reference but rewrote 18 absolute-target symlinks to /dev/null; canonical rootfs_path is the unsquashfs tree",
+    "web stack: PHP www/ (~600 php files, atp backend) incl. session_login.php (CVE-2024-28436 reload param anchor), session_full.php, session_wr_login.php; htdocs/upnp CGI symlinks -> /usr/sbin/upnpkits; version strings only in etc/config (etc/config only, matches DAP-family pattern)",
+    "arch detail: MIPS32 rel2 big-endian (MSB); Atheros AR9300/AR9287 WLAN (libar9300.so/libar9287.so, drvver LSDK-WLAN-10.2.85, madwifi build paths)"
+  ]
+}

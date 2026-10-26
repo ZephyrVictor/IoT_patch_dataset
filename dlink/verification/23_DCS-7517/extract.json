@@ -1,0 +1,29 @@
+{
+  "target_id": "23_DCS-7517",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "DCS-7517B1_FW_v2.01.00.pkg",
+      "sha256": "0f2b0f90c83de555b063e8a8e5f4a11c9e8a7a0028bd335246034db420a08534",
+      "size_bytes": 14040738
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/23_DCS-7517/rootfs",
+  "rootfs_file_count": 1116,
+  "arch": "arm",
+  "version_strings": [
+    {"where": "scripts/chk_version.sh", "string": "nvram set Properties.Firmware.DLinkVersion v2.01.00"},
+    {"where": "scripts/chk_version.sh", "string": "version=7.I.0.27626 (Properties.Firmware.SoftwareVersion)"},
+    {"where": "scripts/chk_version.sh", "string": "date=\"Wed, 29 Aug 2018 16:27:58 GMT\" (Properties.Firmware.BuildDate)"},
+    {"where": "zip entry name / release note title", "string": "DCS-7517B1_FW_v2.01.00.pkg / DCS-7517 B1 Release Note for FW v2.01.doc"}
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "1QS8 container: 44B custom header (magic 1QS8, image 'rootfs+backup'@0x0C) + gzip(GNU tar); binwalk -Me extracts directly, no encryption, no squashfs.",
+    "Same spook platform as DCS-6517: bin/spook (~ARM uClibc) is main HTTP server with <% nvram_get %> .asp templates under www/, config logic in lib/libcgi.so.1.0, bin/httpd is a small helper.",
+    "No literal version strings in bin/, etc/, www/ or ELF strings (first 20 ELFs scanned); version is served at runtime from nvram Properties.Firmware.DLinkVersion, set only by scripts/chk_version.sh -> v2.01.00, consistent with manifest 201_all_en_20190520.",
+    "CVE-2025-6931/6932 anchor functions present: generate_pass_from_mac and g_F_n_GenPassForQlync imported by bin/httpd and defined in lib/libnvram.so.1.0.",
+    "etc/passwd -> /tmp/passwd (generated at runtime); rootfs has 789 regular files + 327 symlinks; tar mtimes 2018-08-29 match BuildDate."
+  ]
+}

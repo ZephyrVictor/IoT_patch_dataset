@@ -1,0 +1,38 @@
+{
+  "target_id": "11_DIR-3060",
+  "model": "DIR-3060 Rev. A",
+  "firmware_version": "1.11b01 (V1.11B01, image header 'DIR-3060 | V1.11B01 | A1', build 2020-01-06 16:19:22)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/11_DIR-3060/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2021-28144",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "command_injection (CWE-78, post-auth HNAP SOAP)",
+      "target_binary": "/bin/prog.cgi",
+      "endpoint": "/HNAP1/ (SOAPAction: SetVirtualServerSettings, FastCGI via lighttpd)",
+      "parameter": "LocalIPAddress (gates: Enabled=\"true\", InternalPort=\"9\", ProtocolType=\"UDP\")",
+      "handler_address": "0x461348 (registered via websFormDefine(\"SetVirtualServerSettings\", 0x461348) at 0x462724)",
+      "sink": {
+        "func": "FCGI_popen (libfcgi.so.0 wrapper of popen)",
+        "call_site": "0x46117c in CheckArpTables@0x46106c"
+      },
+      "evidence": [
+        "version gate: fw header 'DIR-3060 | V1.11B01 | A1' + prog.cgi strings 'V1.11 / B01 / 2020-01-06 16:19:22'; advisory (IoT Inspector IOT-20210311-0): vulnerable 'v1.11b04 & Below', fixed 'v1.11b04 Hotfix 2' -> 1.11b01 in range",
+        "lighttpd.conf:92-105: '/HNAP1/' => fastcgi bin-path /etc_ro/lighttpd/www/web/HNAP1/prog.fcgi; 'ls -la .../HNAP1/' shows prog.fcgi -> /bin/prog.cgi (symlink)",
+        "strings prog.cgi: 0xddf28 'SetVirtualServerSettings', 0xddd70 \"arp | grep %s | awk '{printf $4}'\", 0xddd98 'arp -s %s %s'",
+        "objdump: 0x462724 addiu a0,v0,-8408 (=0x4ddf28 'SetVirtualServerSettings'); 0x46172c... 0x46272c addiu a1,v0,4936 (=0x461348); jalr websFormDefine@0x4090b4 -> action-to-handler binding",
+        "objdump handler 0x461348: 0x46187c 'LocalIPAddress' path snprintf '.../VirtualServerInfo:%d/%s'; 0x461828 lw v0,-32176(gp) -> GOT slot 144 (local, value 0x41be3c = webGetVarString, dynsym 119); 0x4618d0 sw v0,80(sp)",
+        "objdump gates: 0x46198c strcmp([56sp] Enabled,'true'); 0x4619c0 beqz [80sp] LocalIPAddress; 0x4619c8 strcmp([68sp] InternalPort,'9'); 0x4619f4 strcmp([72sp] ProtocolType,'UDP')",
+        "objdump call site: 0x461a40 lw a0,80(sp) (LocalIPAddress); 0x461a50 jal 46106c <CheckArpTables> with a3=sp+92 accum buffer, 5th arg = entry counter",
+        "objdump CheckArpTables@0x46106c: 0x461130 v0='arp | grep %s | awk {printf $4}' (0x4ddd70); 0x461148 lw v0,-30932(gp) -> snprintf (GOT); 0x461154 jalr -> snprintf(sp+120, 0x40, \"arp | grep %s | awk '{printf $4}'\", LocalIPAddress)",
+        "objdump sink: 0x461170 lw v0,-30588(gp) -> GOT slot 544 -> dynsym 551 FCGI_popen (slot value 0x4cc850 matches PLT); 0x46117c jalr t9 with a0=sp+120, a1=0x4ddd94 'r' -> FCGI_popen(cmd, \"r\")",
+        "mipsel-linux-gnu-objdump -T rootfs/lib/libfcgi.so.0: '000058f0 g DF .text 00000084 FCGI_popen' + 'DF *UND* popen' -> FCGI_popen is thin wrapper around popen(3)",
+        "no sanitization: only NULL check on LocalIPAddress between webGetVarString (0x4618d0) and FCGI_popen (0x46117c); no isdigit/inet_aton/metasan call in 0x4618d0-0x461a50 or inside 0x46106c before the snprintf",
+        "secondary sink: 0x4612a0 snprintf(sp+120,0x40,'arp -s %s %s',LocalIPAddress,mac) + 0x46131c strcat accum buffer -> WRSConfigSet('Arp_Static_Item', buf) @0x461e54 -> applied by wrs daemon (root context)",
+        "cross-check vs advisory (IoT Inspector, tested 1.11b04): identical gates (Enabled/LocalIPAddress/InternalPort '9'/ProtocolType 'UDP') and identical pseudocode snprintf+FCGI_popen; advisory addresses 0x461918/0x46163c are exactly +0x5d0 vs this b01 build's 0x461348/0x46106c, consistent inter-build shift"
+      ],
+      "reason": "SetVirtualServerSettings handler (0x461348) in /bin/prog.cgi passes the raw, unsanitized LocalIPAddress SOAP field into CheckArpTables (0x46106c), which formats it into 'arp | grep %s | awk ...' and passes it to FCGI_popen (popen wrapper) at 0x46117c; firmware 1.11b01 predates the 1.11b04-Hotfix2 fix, and the advisory's pseudocode matches this build instruction-for-instruction."
+    }
+  ]
+}

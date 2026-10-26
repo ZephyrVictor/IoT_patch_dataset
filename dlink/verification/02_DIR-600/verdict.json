@@ -1,0 +1,54 @@
+{
+  "target_id": "02_DIR-600",
+  "model": "DIR-600 Rev. B (Ralink RT3052, Alpha Networks platform)",
+  "firmware_version": "2.03b02 WW (internal buildver '2.03', buildno 'a3cj', image DIR600B_FW203WWB02.bin, 2010-03-16)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/02_DIR-600/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2026-2163",
+      "verdict": "confirmed",
+      "version_gate": "pass",
+      "vuln_type": "command injection (CWE-77, via SSDP M-SEARCH ST header)",
+      "target_binary": "usr/sbin/upnpkits (invoked as /usr/sbin/upnpdev External-CGI on UDP 1900; advisory calls it ssdp.cgi)",
+      "endpoint": "SSDP M-SEARCH on UDP 1900 (multicast 239.255.255.250), handled by sbin/httpd (mathopd) -> External CGI /usr/sbin/upnpdev",
+      "parameter": "HTTP_ST (advisory: HTTP_ST/REMOTE_ADDR/REMOTE_PORT/SERVER_ID; three of four present verbatim in this build)",
+      "handler_address": "0x405b70",
+      "sink": {
+        "func": "system",
+        "call_site": "0x408d28 (inside lxmldbc_system @ 0x408cd0: vsnprintf(buf,1024,fmt,ap) @0x408d10 then system(buf))"
+      },
+      "evidence": [
+        "sasquatch -lls E0080.squashfs | grep cgi: 'squashfs-root/htdocs/upnp/upnpdev.cgi -> /usr/sbin/upnpkits' (this build has no file named ssdp.cgi; upnpdev.cgi is the SSDP/UPnP CGI; also hnap->./upnpkits, sgi/xgi->/sbin/atp)",
+        "cat etc/templates/httpd/httpd_upnp.php: 'Port 1900 / Address 239.255.255.250 / UDPServer On / External { /usr/sbin/upnpdev { * } }' — all UDP 1900 requests are executed as external CGI /usr/sbin/upnpdev",
+        "cat etc/defnodes/S20setnodes.php: set(\"/function/httpd_upnp\", \"1\") — UPnP-in-httpd enabled by default",
+        "r2 axt @ 0x419838 (sbin/httpd): fcn.0040326c 0x4034dc builds env name 'HTTP_'+header ('-'->'_') for every request header, i.e. SSDP 'ST:' header becomes HTTP_ST; REMOTE_ADDR/REMOTE_PORT env built in fcn.004036f4 (0x403e08/0x403e90) before fork+execve of External CGI",
+        "objdump upnpkits 0x405e2c <upnpdev_main>: getenv(\"REQUEST_METHOD\"); strcmp==\"M-SEARCH\" -> 'lw t9,-32740(gp); addiu t9,t9,23408(0x5b70); jalr t9' at 0x405ec0-0x405ed0 — dispatches to handler 0x405b70",
+        "objdump upnpkits 0x405b70: getenv(\"HTTP_ST\")@0x405ba4, getenv(\"REMOTE_ADDR\")@0x405bcc, getenv(\"REMOTE_PORT\")@0x405bf4; branches strncmp(st,\"uuid:\",5)/\"urn:\"+strstr(\":device:\")/strstr(\":service:\") select format strings '%s uuid %s:%s %s &'(0x417f9c) / '%s devices %s:%s %s &'(0x417fc4) / '%s services %s:%s %s &'(0x417fe8) with script '/etc/templates/upnpd/M-SEARCH.sh'(0x417f70); raw ST passed as 5th vararg via 'sw s0,16(sp)' @0x405df8",
+        "GOT resolution upnpkits: slot 0x10000778 (gp-32552) = 0x408cd0 = lxmldbc_system; inside lxmldbc_system GOT 0x10000964=0x4025f0(vsnprintf), GOT 0x10000980=0x4025b0(system); call site of system = 0x408d20 lw / 0x408d28 jalr",
+        "readelf --dyn-syms upnpkits: 178: 004025f0 UND vsnprintf; 185: 004025b0 UND system; 55: 00408cd0 lxmldbc_system — final command '/bin/sh -c /etc/templates/upnpd/M-SEARCH.sh uuid <REMOTE_ADDR>:<REMOTE_PORT> <ST> &' with fully attacker-controlled ST (e.g. ST: urn:device:x$(id)) and no sanitization anywhere on the path"
+      ],
+      "reason": "Version in range (2.03b02 <= 2.15WWb02); this build has no ssdp.cgi file but the identical SSDP M-SEARCH handler exists: httpd(mathopd, UDP1900/UDPServer) execs /usr/sbin/upnpdev(=upnpkits) with env HTTP_ST/REMOTE_ADDR/REMOTE_PORT (matching the advisory's parameter names), and the handler passes the raw ST header into system() via lxmldbc_system with no filtering — handler 0x405b70 + sink system@0x408d28 both confirmed, parameter controllability complete."
+    },
+    {
+      "cve_id": "CVE-2025-15194",
+      "verdict": "absent",
+      "version_gate": "pass",
+      "vuln_type": "stack-based buffer overflow via Cookie header (CWE-121) in hedwig.cgi (HTTP Header Handler / HNAP)",
+      "target_binary": "hedwig.cgi — does not exist in this build (no file, no symlink, no string)",
+      "endpoint": "HNAP (/HNAP1/, handled by /usr/sbin/hnap -> upnpkits hnap_main in this build)",
+      "parameter": "Cookie (advisory) — no component in this build parses any Cookie header",
+      "handler_address": null,
+      "sink": null,
+      "evidence": [
+        "find rootfs -name '*hedwig*' -> no results; grep -ri hedwig rootfs/ -> no matches (828 files)",
+        "sasquatch -lls E0080.squashfs (full symlink table): only cgis are htdocs/upnp/upnpdev.cgi->/usr/sbin/upnpkits and htdocs/upnp/wfadev.cgi->/usr/sbin/upnpkits; /usr/sbin/hnap->./upnpkits; /sbin/sgi and /sbin/xgi->/sbin/atp; no hedwig.cgi anywhere",
+        "grep -ril cookie rootfs/ -> only etc/netsniper/pers.conf ('cookiefrag yes;' = packet fragmentation, unrelated); none of the 39 ELF executables (busybox,httpd,atp,upnpkits,rgbin,xmldb,...) contains 'Cookie' or 'HTTP_COOKIE'",
+        "companion 1 — upnpkits hnap_main @0x40348c (the HNAP 'HTTP Header Handler' analog for /HNAP1/): complete getenv enumeration shows only HTTP_AUTHORIZATION/HTTP_SOAPACTION/QUERY_STRING (plus REQUEST_METHOD/REQUEST_URI/HTTP_SID/HTTP_CALLBACK/HTTP_TIMEOUT/HTTP_NT/REMOTE_ADDR/REMOTE_PORT/HTTP_ST elsewhere in the binary); auth is Basic ('WWW-Authenticate: Basic realm=\"HNAP 1.0\"', /var/etc/hnapasswd) — no Cookie-based session exists",
+        "companion 2 — sbin/httpd (mathopd): no 'Cookie' string at all; session id is generated internally and passed to CGIs as env SESSION_ID (built at 0x403a58 in fcn.004036f4), not via client Cookie parsing; headers are only generically copied into HTTP_* env vars",
+        "companion 3 — sbin/atp (target of xgi/sgi External CGIs, processes www/*.php): env reads are REMOTE_ADDR/REMOTE_USER/REMOTE_PASSWD only, no Cookie",
+        "www/HNAP1/ contains only an empty index.hnap; mathopd config maps /HNAP1 to External /usr/sbin/hnap with extension hnap"
+      ],
+      "reason": "Version is inside the advisory's 'up to 2.15WWb02' range, so the gate passes and the verdict is code-based: the vulnerable file hedwig.cgi (and its Cookie->stack-buffer sink) does not exist anywhere in 2.03b02 — no hedwig file/symlink/string, and no binary in the firmware parses a Cookie header. Companion processes checked per 4.e: upnpkits hnap_main (HNAP handler uses HTTP_AUTHORIZATION Basic auth, not Cookie), httpd (sessions via internal SESSION_ID, no Cookie string), atp (no Cookie). The Cookie-based HNAP auth model that hedwig.cgi implements was evidently introduced in a later firmware generation (researcher tested 2.15WWb02)."
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "target_id": "03_DIR-300",
+  "model": "DIR-300 Rev. B",
+  "firmware_version": "205b03_ALL_de_20101123 (internal: buildver 2.05, builddate 2010-11-23)",
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/03_DIR-300/rootfs",
+  "verdicts": [
+    {
+      "cve_id": "CVE-2013-10069",
+      "verdict": "absent",
+      "version_gate": "pass",
+      "vuln_type": "OS command injection (CWE-78), unauthenticated",
+      "target_binary": "www/command.php served via sbin/httpd -> External CGI sbin/atp (elbox PHP engine)",
+      "endpoint": "POST /command.php",
+      "parameter": "cmd",
+      "handler_address": null,
+      "sink": null,
+      "evidence": [
+        "cat rootfs/etc/config/buildver -> '2.05'; etc/defnodes/S40brand.php -> set(\"externalversion\",\"2.05\"), set(\"hardwareversion\",\"B1\"); builddate 'Tue 23 Nov 2010' -> internal version 2.05b03",
+        "NVD affectedData (record.json): DIR-300 rev B versions 0..2.13 affected -> 2.05 <= 2.13, hardware B1 = rev B family -> version gate PASS",
+        "metasploit dlink_command_php_exec_noauth.rb (local archive objects/d8b05ffe...): uri='/command.php', vars_post \"cmd\" => cmd, 'tested with the versions DIR-600 2.14b01, DIR-300 rev B 2.13'",
+        "exploit-db 24453 raw PoC (objects/22988236...): DIR-300 vulnerable firmware listed = 2.12 (18.01.2012) and 2.13 (07.11.2012), both NEWER than this 2010-11-23 build; attack = 'POST /command.php' body 'cmd=telnetd;' unauthenticated",
+        "ls rootfs/www | wc -l -> 132 entries; ls rootfs/www/command.php -> 'No such file or directory'",
+        "grep -rl 'command.php' rootfs/ -> no match across all 842 files including every ELF; case-insensitive rerun (-rni) also zero; find rootfs -iname '*command*' -> no match (no runtime generator either)",
+        "strings -a -t x sbin/atp | grep -iw 'cmd|command' -> zero hits: the .php/.xgi/.sgi CGI engine has no cmd parameter code path and no embedded PHP ('<?' count = 0)",
+        "cat etc/templates/httpd/httpd.php -> External { /sbin/atp { php txt }; /sbin/xgi { xgi bin }; /sbin/sgi { sgi } }; etc/templates/httpd/httpd_server.php -> 'Alias /' + 'Location /www': URL /command.php maps to file /www/command.php which must exist, then runs via /sbin/atp",
+        "mipsel-linux-gnu-objdump -d sbin/httpd (scratch/03_DIR-300/analysis/httpd.asm): function faketoreal (0x410444, URL->real-path resolver) logs 'file not found' at 0x410fd8; status table at 0x412938 maps a0=404 -> '404 Not Found' (0x41b4b8) -> missing file gets 404, no fallback handler",
+        "companion-process sweep (agent.md 4.e): for every ELF in rootfs, strings -a | grep -w cmd -> only usr/sbin/scheduled (input is /var/run/schedule_usock unix socket, internal), iwconfig (ioctl debug print), rt2860v2_ap.ko (driver debug); httpd/atp/hnap/widget/submit/upnpkits/upnpdev have zero",
+        "grep -rn '$cmd' rootfs/www rootfs/etc rootfs/htdocs -> only etc/templates/upnpd/__ACTION.DO.{Add,Delete}PortMapping.php which build iptables strings from rgdb config nodes (not HTTP input); grep -rl 'cmd=' -> only internal usockc scheduler messages in etc/templates/*.php with fixed command strings",
+        "etc/scripts/misc/telnetd.sh: telnetd started only if `rgdb -g /sys/telnetd` = true (PoC's telnetd landing irrelevant; deciding factor is the missing endpoint)"
+      ],
+      "reason": "Endpoint absent: www/command.php does not exist in this 2.05b03 (2010-11-23) build - httpd maps / to /www and dispatches .php via External CGI /sbin/atp only for existing files (missing -> 404 via faketoreal/status table), the atp engine contains no cmd/command handling, and all companion daemons (hnap /HNAP1, upnpdev SSDP:1900, upnpkits TCP:49152, widget, submit, scheduled) were checked and expose no cmd POST parameter; PoC-confirmed vulnerable versions (2.12/2.13, 2012) postdate this build, i.e. the vulnerable page was introduced in later firmware."
+    },
+    {
+      "cve_id": "CVE-2013-10048",
+      "verdict": "absent",
+      "version_gate": "pass",
+      "vuln_type": "OS command injection (CWE-78), unauthenticated",
+      "target_binary": "www/command.php served via sbin/httpd -> External CGI sbin/atp (elbox PHP engine)",
+      "endpoint": "POST /command.php",
+      "parameter": "cmd",
+      "handler_address": null,
+      "sink": null,
+      "evidence": [
+        "NVD affectedData (record.json): DIR-300 versions 0..2.13 affected, module command.php, parameter cmd -> 2.05 <= 2.13, hardware B1 -> version gate PASS",
+        "Same attack surface as CVE-2013-10069 (same endpoint /command.php, same cmd POST parameter; both sourced from s3cur1ty.de M1ADV2013-003)",
+        "ls rootfs/www/command.php -> 'No such file or directory'; www/ has 132 entries, no command.php; grep -rl 'command.php' over whole rootfs (incl. all ELFs) -> zero matches",
+        "strings -a sbin/atp | grep -iw 'cmd|command' -> zero hits (atp is the sole .php engine per etc/templates/httpd/httpd.php 'External { /sbin/atp { php txt } }'); atp does import system/popen/execlp/fork but no code path references a cmd parameter",
+        "httpd disasm analysis/httpd.asm: faketoreal 0x410fd8 'file not found' log + 404 status mapping at 0x412938 -> request for non-existent /command.php returns 404, never reaches a handler",
+        "Companion processes checked with strings|grep -w cmd: hnap, widget, submit, upnpkits, upnpdev, scheduled, telnetd script -> none processes an HTTP cmd parameter (details in CVE-2013-10069 evidence)",
+        "grep -rn '$cmd'/'cmd=' in www etc htdocs -> only internal UPnP iptables builders and usockc scheduler messages from rgdb nodes, not attacker-controllable via POST cmd"
+      ],
+      "reason": "Identical endpoint/parameter as CVE-2013-10069 and equally absent: www/command.php does not exist in this 2.05b03 build, atp engine and all companion daemons (hnap/upnpdev/upnpkits/widget/submit/scheduled) have no cmd POST parameter handling, so the described unauthenticated command-injection path cannot exist in this firmware."
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "target_id": "24_DCS-7410",
+  "zip_sha256_verified": true,
+  "images": [
+    {
+      "zip_entry": "update_DCS-7410_1.00_patch01_7712.bin",
+      "sha256": "3ed73db8c4d6c368a666249dc25e4581ecc2d485bc6f3787cfa7a2b08dd91d22",
+      "size_bytes": 6977926
+    }
+  ],
+  "rootfs_path": "/home/fjw/workspace/flow/dlink_verify/scratch/24_DCS-7410/rootfs",
+  "rootfs_file_count": 1110,
+  "arch": "arm",
+  "version_strings": [
+    {"where": "etc/db/dbinput.db (tinydb [System] Version, off 187)", "string": "1.0.0-7712"},
+    {"where": "etc/db/dbinput.db (tinydb [System] OEMVersion, off 596)", "string": "1.00_patch01"},
+    {"where": "etc/db/dbinput.db (tinydb [Meta] Version, off 39)", "string": "1.0.0"},
+    {"where": "pkg/update_DCS-7410_1.00_patch01_7712.bin shell header line 7", "string": "VERSION=\"1.0.0-7712\""},
+    {"where": "pkg/update_DCS-7410_1.00_patch01_7712.bin shell header lines 4-6", "string": "HWBOARD=\"dcs7410\" OEM=\"D-Link\" MODEL=\"DCS-7410\""}
+  ],
+  "contradicting_version_strings": [],
+  "errors": [],
+  "notes": [
+    "Alphanetworks OEM (VENDOR=\"Alphanetworks\" HWBOARD=\"dcs7410\"), POSIX sh self-extractor; payload = tail -n +104 fed to ddPack (PACKAGE=\"KERNEL ROOTFS\").",
+    "Payload layout: ARM zImage kernel @0x5260 (gzip @0x7E40, built 2013-04-12) + CramFS rootfs @0x105260 size 5767168 (1111 files, zlib, LE) + Proboot autoboot.bat tail (cramfs@0x160000 0x5A0000, tinydb@0x20000, pibinfo@0x0); binwalk carved the CramFS but its extractor produced an empty dir -> used 7-Zip 23.01 native CramFS, then rebuilt 64 rejected symlinks (etc/passwd->/tmp/*, usr/bin/*->../../bin/busybox etc.) from the 7z error log; rootfs complete (1110 entries = 643 files + 407 links + 60 dirs).",
+    "Manifest firmware_version 100b7712_all_en_20180605 reconciles with internal [System] Version=1.0.0-7712 (build 7712) + OEMVersion=1.00_patch01; userspace/kernel build date 2013-04-12 (BusyBox v1.01) vs 2018-06-05 package date — 2018 phaseout security repack, not a version contradiction.",
+    "Web/RTSP stack (for CVE-2013-1599/1603 verification): lighttpd + var/www (CGIs at var/www/cgi/*.cgi and var/www/cgi/admin/*.cgi; ~30 admin CGIs incl. factoryUpdate.cgi, forceUpdate.cgi, import/export). NO var/www/cgi-bin/rtpd.cgi exists in this 1.00_patch01_7712 build — CVE-2013-1599 script path absent (patched or reorganized); RTSP daemons present: sbin/rtspd + sbin/rtpd, etc/rtpd.conf, etc/rtspd.conf, rcS.d/S91rtpd.sh + S92rtspd.sh.",
+    "etc/db/umconfig.txt user table: admin (group 9_admin priv 4), guest (group 0_guest priv 1); tinydb dbinput.db has [RTPServer]/[HTTPAccount]-style sections (NUL-padded records, needs offset-based parsing, line grep misses them).",
+    "etc/passwd, etc/shadow, etc/resolv.conf etc. are symlinks into /tmp (dangling in static extraction); lighttpd runtime config generated at /tmp/lighttpd-inc.conf.",
+    "ZIP also contains 'Release note for D-Link_Phaseout_Models_Vulnerabilities.xls' (doc, excluded from images)."
+  ]
+}
